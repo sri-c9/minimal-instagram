@@ -1,0 +1,21 @@
+{
+  "thread": {
+    "thread_id": "t_junk_1",
+    "users": [{ "pk": 111, "username": "alice", "full_name": "Alice Example" }],
+    "items": [
+      { "item_id": "i_text_1", "user_id": 111, "timestamp": 1000000, "item_type": "text", "text": "hi" },
+      { "item_id": "i_clip_1", "user_id": 111, "timestamp": 1000001, "item_type": "clip",
+        "clip": { "clip": { "video_versions": [{ "url": "https://scontent.cdninstagram.com/v/clip1.mp4" }],
+                            "image_versions2": { "candidates": [{ "url": "https://scontent.cdninstagram.com/v/thumb1.jpg" }] } } } },
+      { "item_id": "i_share_vid", "user_id": 111, "timestamp": 1000002, "item_type": "media_share",
+        "media_share": { "video_versions": [{ "url": "https://scontent.cdninstagram.com/v/share1.mp4" }] } },
+      { "item_id": "i_ad_1", "user_id": 111, "timestamp": 1000003, "item_type": "ad",
+        "ad": { "headline": "Buy now" } },
+      { "item_id": "i_sugg_1", "user_id": 111, "timestamp": 1000004, "item_type": "suggested_users",
+        "suggested_users": { "suggestions": [{ "username": "spam" }] } },
+      { "item_id": "i_unknown_1", "user_id": 111, "timestamp": 1000005, "item_type": "reels_you_might_like" },
+      { "item_id": "i_share_photo", "user_id": 111, "timestamp": 1000006, "item_type": "media_share",
+        "media_share": { "image_versions2": { "candidates": [{ "url": "https://scontent.cdninstagram.com/v/photo.jpg" }] } } }
+    ]
+  }
+}

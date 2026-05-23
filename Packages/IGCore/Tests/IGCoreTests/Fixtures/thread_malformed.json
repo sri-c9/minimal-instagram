@@ -1,0 +1,15 @@
+{
+  "thread": {
+    "thread_id": "t_malformed_1",
+    "users": [{ "pk": 222, "username": "bob", "full_name": "Bob Example" }],
+    "items": [
+      { "item_id": "ok_text", "user_id": 222, "timestamp": 2000000, "item_type": "text", "text": "still here" },
+      { "item_type": "text", "text": "no id or timestamp" },
+      { "item_id": "no_text", "user_id": 222, "timestamp": 2000001, "item_type": "text" },
+      { "item_id": "empty_text", "user_id": 222, "timestamp": 2000002, "item_type": "text", "text": "" },
+      { "item_id": "clip_no_video", "user_id": 222, "timestamp": 2000003, "item_type": "clip", "clip": { "clip": {} } },
+      42,
+      "not even an object"
+    ]
+  }
+}
