@@ -52,4 +52,44 @@ import Testing
         #expect(req.url?.absoluteString.contains("/api/v1/direct_v2/threads/rt_real_1/") == true)
         #expect(req.url?.query?.contains("limit=40") == true)
     }
+
+    @Test func refreshesClaimFromResponseHeader() async throws {
+        let body = try Fixture.data("inbox_real")
+        MockURLProtocol.responder = { _ in (200, ["x-ig-set-www-claim": "hmac.NEW"], body) }
+        let captured = ClaimBox()
+        let client = IGWebClient(session: FakeSession(session()) { captured.value = $0 },
+                                 urlSession: MockURLProtocol.session())
+        _ = try await client.inbox()
+        #expect(captured.value == "hmac.NEW")
+    }
+
+    // MARK: - Error mapping (session-death firewall)
+
+    @Test func loginRequiredBodyMapsToNeedsLogin() async throws {
+        MockURLProtocol.responder = { _ in (200, [:], Data(#"{"message":"login_required","status":"fail"}"#.utf8)) }
+        let client = IGWebClient(session: FakeSession(session()), urlSession: MockURLProtocol.session())
+        await #expect(throws: IGClientError.needsLogin) { _ = try await client.inbox() }
+    }
+
+    @Test func forbiddenMapsToNeedsLogin() async throws {
+        MockURLProtocol.responder = { _ in (403, [:], Data()) }
+        let client = IGWebClient(session: FakeSession(session()), urlSession: MockURLProtocol.session())
+        await #expect(throws: IGClientError.needsLogin) { _ = try await client.inbox() }
+    }
+
+    @Test func serverErrorMapsToHTTP() async throws {
+        MockURLProtocol.responder = { _ in (500, [:], Data()) }
+        let client = IGWebClient(session: FakeSession(session()), urlSession: MockURLProtocol.session())
+        await #expect(throws: IGClientError.http(500)) { _ = try await client.inbox() }
+    }
+
+    @Test func missingSessionMapsToNeedsLogin() async throws {
+        let client = IGWebClient(session: FakeSession(nil), urlSession: MockURLProtocol.session())
+        await #expect(throws: IGClientError.needsLogin) { _ = try await client.inbox() }
+    }
+}
+
+/// Mutable box so a Sendable closure can capture the refreshed claim across the await.
+final class ClaimBox: @unchecked Sendable {
+    var value: String?
 }

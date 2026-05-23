@@ -32,11 +32,11 @@ public struct KeychainStore: SecureStore {
     }
 
     public func read(_ key: String) throws -> Data? {
-        var q = query(key)
-        q[kSecReturnData as String] = true
-        q[kSecMatchLimit as String] = kSecMatchLimitOne
+        var lookup = query(key)
+        lookup[kSecReturnData as String] = true
+        lookup[kSecMatchLimit as String] = kSecMatchLimitOne
         var out: CFTypeRef?
-        let status = SecItemCopyMatching(q as CFDictionary, &out)
+        let status = SecItemCopyMatching(lookup as CFDictionary, &out)
         if status == errSecItemNotFound { return nil }
         guard status == errSecSuccess else { throw IGClientError.transport }
         return out as? Data

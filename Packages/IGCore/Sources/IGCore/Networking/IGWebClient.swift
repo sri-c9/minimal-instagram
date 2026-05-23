@@ -23,10 +23,11 @@ struct IGWebClient: Sendable {
     // Shared request builder + claim refresh + error mapping.
     private func get<T: Decodable>(_ path: String, query: [String: String], as type: T.Type) async throws -> T {
         guard let session = await session.current() else { throw IGClientError.needsLogin }
-        var comps = URLComponents(string: "https://www.instagram.com")!
+        guard var comps = URLComponents(string: "https://www.instagram.com") else { throw IGClientError.transport }
         comps.path = path
         comps.queryItems = query.map { URLQueryItem(name: $0.key, value: $0.value) }
-        var req = URLRequest(url: comps.url!)
+        guard let url = comps.url else { throw IGClientError.transport }
+        var req = URLRequest(url: url)
         req.setValue(appID, forHTTPHeaderField: "X-IG-App-ID")
         req.setValue(session.claim, forHTTPHeaderField: "X-IG-WWW-Claim")
         req.setValue(session.csrfToken, forHTTPHeaderField: "X-CSRFToken")
@@ -61,14 +62,23 @@ struct IGWebClient: Sendable {
     }
 
     /// Maps an HTTP response to a thrown `IGClientError`, or returns normally if OK.
+    /// IG signals a dead/blocked session two ways — both map to `.needsLogin`:
+    /// (1) a 401/403 status, or (2) a 200 whose body still says login_required /
+    /// checkpoint_required (IG often returns 200 with a failure payload). Any other
+    /// non-2xx is a generic `.http(code)`.
     static func checkStatus(_ http: HTTPURLResponse, data: Data) throws {
-        // TODO(human): the session-death firewall. IG signals an expired/blocked
-        // session in two ways — map BOTH to `IGClientError.needsLogin`:
-        //   1. status 401 or 403
-        //   2. a 200 body that still contains "login_required" or "checkpoint_required"
-        //      (IG often returns 200 with a failure message)
-        // Any other non-2xx status should throw `IGClientError.http(http.statusCode)`.
-        // The minimal stub below only handles the success case, so the error tests fail.
+        switch http.statusCode {
+        case 401, 403:
+            throw IGClientError.needsLogin
+        case 200:
+            if let body = String(data: data, encoding: .utf8),
+               body.contains("login_required") || body.contains("checkpoint_required") {
+                throw IGClientError.needsLogin
+            }
+        default:
+            break
+        }
+
         guard (200..<300).contains(http.statusCode) else { throw IGClientError.http(http.statusCode) }
     }
 }
