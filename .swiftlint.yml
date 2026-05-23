@@ -1,0 +1,22 @@
+included:
+  - App/Sources
+  - Packages/IGCore/Sources
+  - Packages/IGCore/Tests
+
+excluded:
+  - "**/.build"
+  - "**/DerivedData"
+
+opt_in_rules:
+  - empty_count
+  - force_unwrapping
+
+disabled_rules:
+  - todo            # TODO(human) markers are used intentionally during collaboration
+
+line_length:
+  warning: 120
+  error: 200
+
+identifier_name:
+  min_length: 2     # allow short, conventional names like id, ds, ok

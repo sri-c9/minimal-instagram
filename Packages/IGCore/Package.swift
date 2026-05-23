@@ -1,0 +1,23 @@
+// swift-tools-version: 6.2
+import PackageDescription
+
+let package = Package(
+    name: "IGCore",
+    platforms: [
+        .iOS(.v26)
+    ],
+    products: [
+        .library(name: "IGCore", targets: ["IGCore"])
+    ],
+    targets: [
+        .target(
+            name: "IGCore",
+            swiftSettings: [.swiftLanguageMode(.v6)]
+        ),
+        .testTarget(
+            name: "IGCoreTests",
+            dependencies: ["IGCore"],
+            swiftSettings: [.swiftLanguageMode(.v6)]
+        )
+    ]
+)
