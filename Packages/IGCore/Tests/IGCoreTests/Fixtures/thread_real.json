@@ -1,0 +1,161 @@
+{
+  "thread": {
+    "thread_id": "rt_real_1",
+    "thread_title": "River Stone",
+    "users": [
+      {
+        "pk": "700000000000001",
+        "username": "riverstone",
+        "full_name": "River Stone"
+      }
+    ],
+    "items": [
+      {
+        "item_id": "r_text_1",
+        "user_id": "700000000000001",
+        "timestamp": 1779500000000000,
+        "item_type": "text",
+        "text": "sending you this one \ud83d\ude02"
+      },
+      {
+        "item_id": "r_text_2",
+        "user_id": "700000000000001",
+        "timestamp": 1779500000001000,
+        "item_type": "text",
+        "text": "have you seen this"
+      },
+      {
+        "item_id": "r_text_3",
+        "user_id": "700000000000001",
+        "timestamp": 1779500000002000,
+        "item_type": "text",
+        "text": ""
+      },
+      {
+        "item_id": "r_clip_1",
+        "user_id": "700000000000001",
+        "timestamp": 1779500000003000,
+        "item_type": "clip",
+        "clip": {
+          "clip": {
+            "video_versions": [
+              {
+                "url": "https://scontent.cdninstagram.com/v/reel1.mp4",
+                "width": 720,
+                "height": 1280
+              }
+            ],
+            "image_versions2": {
+              "candidates": [
+                {
+                  "url": "https://scontent.cdninstagram.com/v/thumb1.jpg",
+                  "width": 720,
+                  "height": 1280
+                }
+              ]
+            }
+          }
+        }
+      },
+      {
+        "item_id": "r_clip_2",
+        "user_id": "700000000000001",
+        "timestamp": 1779500000004000,
+        "item_type": "clip",
+        "clip": {
+          "clip": {
+            "video_versions": [
+              {
+                "url": "https://scontent.cdninstagram.com/v/reel2.mp4",
+                "width": 720,
+                "height": 1280
+              }
+            ],
+            "image_versions2": {
+              "candidates": [
+                {
+                  "url": "https://scontent.cdninstagram.com/v/thumb2.jpg",
+                  "width": 720,
+                  "height": 1280
+                }
+              ]
+            }
+          }
+        }
+      },
+      {
+        "item_id": "r_share_photo",
+        "user_id": "700000000000001",
+        "timestamp": 1779500000005000,
+        "item_type": "media_share",
+        "direct_media_share": {
+          "media": {
+            "image_versions2": {
+              "candidates": [
+                {
+                  "url": "https://scontent.cdninstagram.com/v/thumb9.jpg",
+                  "width": 720,
+                  "height": 1280
+                }
+              ]
+            }
+          }
+        }
+      },
+      {
+        "item_id": "r_share_vid",
+        "user_id": "700000000000001",
+        "timestamp": 1779500000006000,
+        "item_type": "media_share",
+        "direct_media_share": {
+          "media": {
+            "video_versions": [
+              {
+                "url": "https://scontent.cdninstagram.com/v/reel7.mp4",
+                "width": 720,
+                "height": 1280
+              }
+            ],
+            "image_versions2": {
+              "candidates": [
+                {
+                  "url": "https://scontent.cdninstagram.com/v/thumb7.jpg",
+                  "width": 720,
+                  "height": 1280
+                }
+              ]
+            }
+          }
+        }
+      },
+      {
+        "item_id": "r_raven",
+        "user_id": "700000000000001",
+        "timestamp": 1779500000007000,
+        "item_type": "raven_media",
+        "visual_media": {
+          "media": {
+            "image_versions2": {
+              "candidates": [
+                {
+                  "url": "https://scontent.cdninstagram.com/v/thumb5.jpg",
+                  "width": 720,
+                  "height": 1280
+                }
+              ]
+            }
+          }
+        }
+      },
+      {
+        "item_id": "r_action",
+        "user_id": "700000000000001",
+        "timestamp": 1779500000008000,
+        "item_type": "action_log",
+        "action_log": {
+          "description": "River liked a message"
+        }
+      }
+    ]
+  }
+}

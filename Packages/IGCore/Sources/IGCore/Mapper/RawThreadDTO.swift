@@ -32,7 +32,7 @@ struct RawItem: Decodable {
     let itemType: String?
     let text: String?
     let clip: RawClipWrapper?
-    let mediaShare: RawMedia?
+    let directMediaShare: RawDirectMediaShare?
 
     enum CodingKeys: String, CodingKey {
         case itemID = "item_id"
@@ -41,13 +41,19 @@ struct RawItem: Decodable {
         case itemType = "item_type"
         case text
         case clip
-        case mediaShare = "media_share"
+        case directMediaShare = "direct_media_share"
     }
 }
 
-/// Clips nest one level deeper than media_share: item.clip.clip.video_versions
+/// Clips nest the media one level deep: item.clip.clip.video_versions
 struct RawClipWrapper: Decodable {
     let clip: RawMedia?
+}
+
+/// A shared post/reel: the real web API nests the media under
+/// item.direct_media_share.media.video_versions (confirmed via capture 2026-05-23).
+struct RawDirectMediaShare: Decodable {
+    let media: RawMedia?
 }
 
 struct RawMedia: Decodable {

@@ -59,7 +59,7 @@ public enum DomainMapper {
         case "clip":
             return reel(id: id, sender: sender, sentAt: sentAt, media: raw.clip?.clip)
         case "media_share":
-            return reel(id: id, sender: sender, sentAt: sentAt, media: raw.mediaShare)
+            return reel(id: id, sender: sender, sentAt: sentAt, media: raw.directMediaShare?.media)
         default:
             return nil
         }

@@ -8,14 +8,18 @@
         "clip": { "clip": { "video_versions": [{ "url": "https://scontent.cdninstagram.com/v/clip1.mp4" }],
                             "image_versions2": { "candidates": [{ "url": "https://scontent.cdninstagram.com/v/thumb1.jpg" }] } } } },
       { "item_id": "i_share_vid", "user_id": 111, "timestamp": 1000002, "item_type": "media_share",
-        "media_share": { "video_versions": [{ "url": "https://scontent.cdninstagram.com/v/share1.mp4" }] } },
+        "direct_media_share": { "media": { "video_versions": [{ "url": "https://scontent.cdninstagram.com/v/share1.mp4" }] } } },
       { "item_id": "i_ad_1", "user_id": 111, "timestamp": 1000003, "item_type": "ad",
         "ad": { "headline": "Buy now" } },
       { "item_id": "i_sugg_1", "user_id": 111, "timestamp": 1000004, "item_type": "suggested_users",
         "suggested_users": { "suggestions": [{ "username": "spam" }] } },
       { "item_id": "i_unknown_1", "user_id": 111, "timestamp": 1000005, "item_type": "reels_you_might_like" },
       { "item_id": "i_share_photo", "user_id": 111, "timestamp": 1000006, "item_type": "media_share",
-        "media_share": { "image_versions2": { "candidates": [{ "url": "https://scontent.cdninstagram.com/v/photo.jpg" }] } } }
+        "direct_media_share": { "media": { "image_versions2": { "candidates": [{ "url": "https://scontent.cdninstagram.com/v/photo.jpg" }] } } } },
+      { "item_id": "i_raven_1", "user_id": 111, "timestamp": 1000007, "item_type": "raven_media",
+        "visual_media": { "media": { "image_versions2": { "candidates": [{ "url": "https://scontent.cdninstagram.com/v/vanish.jpg" }] } } } },
+      { "item_id": "i_action_1", "user_id": 111, "timestamp": 1000008, "item_type": "action_log",
+        "action_log": { "description": "Alice liked a message" } }
     ]
   }
 }
