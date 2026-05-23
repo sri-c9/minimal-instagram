@@ -17,6 +17,7 @@ let package = Package(
         .testTarget(
             name: "IGCoreTests",
             dependencies: ["IGCore"],
+            resources: [.copy("Fixtures")],
             swiftSettings: [.swiftLanguageMode(.v6)]
         )
     ]
