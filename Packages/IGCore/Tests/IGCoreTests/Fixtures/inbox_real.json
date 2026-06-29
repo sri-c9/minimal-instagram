@@ -1,0 +1,63 @@
+{
+  "inbox": {
+    "threads": [
+      {
+        "thread_id": "ri_1",
+        "users": [
+          {
+            "pk": "700000000000001",
+            "username": "riverstone",
+            "full_name": "River Stone"
+          }
+        ],
+        "read_state": 1,
+        "is_pin": false,
+        "last_activity_at": 1779515649907000
+      },
+      {
+        "thread_id": "ri_2",
+        "users": [
+          {
+            "pk": "700000000000002",
+            "username": "mara.k",
+            "full_name": "Mara K"
+          }
+        ],
+        "read_state": 0,
+        "is_pin": true,
+        "last_activity_at": 1779515000000000
+      },
+      {
+        "thread_id": "ri_3",
+        "users": [
+          {
+            "pk": "700000000000003",
+            "username": "deepcurrent",
+            "full_name": ""
+          }
+        ],
+        "read_state": 0,
+        "is_pin": false,
+        "last_activity_at": 1779514000000000
+      },
+      {
+        "thread_id": "ri_4",
+        "users": [
+          {
+            "pk": "700000000000004",
+            "username": "ana",
+            "full_name": "Ana"
+          },
+          {
+            "pk": "700000000000005",
+            "username": "ben",
+            "full_name": "Ben"
+          }
+        ],
+        "read_state": 1,
+        "is_pin": false,
+        "last_activity_at": 1779513000000000
+      }
+    ]
+  }
+}

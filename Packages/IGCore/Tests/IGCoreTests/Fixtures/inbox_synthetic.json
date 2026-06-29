@@ -1,0 +1,20 @@
+{
+  "inbox": {
+    "threads": [
+      {
+        "thread_id": "t_inbox_1",
+        "users": [{ "pk": 501, "username": "carol", "full_name": "Carol Example" }],
+        "read_state": 1,
+        "is_pin": false,
+        "last_activity_at": 1700000000000000
+      },
+      {
+        "thread_id": "t_inbox_2",
+        "users": [{ "pk": 502, "username": "dave", "full_name": "" }],
+        "read_state": 0,
+        "is_pin": true,
+        "last_activity_at": 1700000001000000
+      }
+    ]
+  }
+}

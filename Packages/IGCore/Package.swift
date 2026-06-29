@@ -4,7 +4,8 @@ import PackageDescription
 let package = Package(
     name: "IGCore",
     platforms: [
-        .iOS(.v26)
+        .iOS(.v26),
+        .macOS(.v13)   // host floor for `swift test`: enables async URLSession + modern Foundation APIs
     ],
     products: [
         .library(name: "IGCore", targets: ["IGCore"])
@@ -17,6 +18,7 @@ let package = Package(
         .testTarget(
             name: "IGCoreTests",
             dependencies: ["IGCore"],
+            resources: [.copy("Fixtures")],
             swiftSettings: [.swiftLanguageMode(.v6)]
         )
     ]

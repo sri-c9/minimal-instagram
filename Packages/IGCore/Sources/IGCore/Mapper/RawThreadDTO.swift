@@ -1,0 +1,93 @@
+import Foundation
+
+struct RawThreadResponse: Decodable {
+    let thread: RawThreadDetail
+}
+
+struct RawThreadDetail: Decodable {
+    let threadID: String?
+    let users: [RawUser]
+    let items: [RawItem]
+    let oldestCursor: String?
+
+    enum CodingKeys: String, CodingKey {
+        case threadID = "thread_id"
+        case users
+        case items
+        case oldestCursor = "oldest_cursor"
+    }
+
+    init(from decoder: Decoder) throws {
+        let container = try decoder.container(keyedBy: CodingKeys.self)
+        threadID = try container.decodeIfPresent(String.self, forKey: .threadID)
+        users = container.decodeLossyArray(RawUser.self, forKey: .users)
+        items = container.decodeLossyArray(RawItem.self, forKey: .items)
+        oldestCursor = try container.decodeIfPresent(String.self, forKey: .oldestCursor)
+    }
+}
+
+/// A thread item. All type-specific fields are optional so unknown/junk items still
+/// decode (then get dropped by the mapper). `itemType` is the allow-list discriminator.
+struct RawItem: Decodable {
+    let itemID: String?
+    let userID: IGIdentifier?
+    let timestamp: Int64?
+    let itemType: String?
+    let text: String?
+    let clip: RawClipWrapper?
+    let directMediaShare: RawDirectMediaShare?
+
+    enum CodingKeys: String, CodingKey {
+        case itemID = "item_id"
+        case userID = "user_id"
+        case timestamp
+        case itemType = "item_type"
+        case text
+        case clip
+        case directMediaShare = "direct_media_share"
+    }
+}
+
+/// Clips nest the media one level deep: item.clip.clip.video_versions
+struct RawClipWrapper: Decodable {
+    let clip: RawMedia?
+}
+
+/// A shared post/reel: the real web API nests the media under
+/// item.direct_media_share.media.video_versions (confirmed via capture 2026-05-23).
+struct RawDirectMediaShare: Decodable {
+    let media: RawMedia?
+}
+
+struct RawMedia: Decodable {
+    let videoVersions: [RawVideoVersion]?
+    let imageVersions2: RawImageVersions?
+
+    enum CodingKeys: String, CodingKey {
+        case videoVersions = "video_versions"
+        case imageVersions2 = "image_versions2"
+    }
+
+    /// First playable video URL, if any. The video gate for SharedReel.
+    var bestVideoURL: URL? {
+        guard let raw = videoVersions?.first?.url else { return nil }
+        return URL(string: raw)
+    }
+
+    var bestThumbnailURL: URL? {
+        guard let raw = imageVersions2?.candidates.first?.url else { return nil }
+        return URL(string: raw)
+    }
+}
+
+struct RawVideoVersion: Decodable {
+    let url: String
+}
+
+struct RawImageVersions: Decodable {
+    let candidates: [RawImageCandidate]
+}
+
+struct RawImageCandidate: Decodable {
+    let url: String
+}

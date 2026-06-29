@@ -1,0 +1,16 @@
+{
+  "inbox": {
+    "threads": [
+      {
+        "thread_id": "fake_thread_1",
+        "users": [{ "pk": 12345, "username": "alice_fake", "full_name": "Alice Fake" }],
+        "read_state": 0,
+        "is_pin": false,
+        "last_activity_at": 1700000000000000
+      }
+    ],
+    "oldest_cursor": "fake_inbox_cursor_abc"
+  },
+  "seq_id": 40065,
+  "status": "ok"
+}
