@@ -6,12 +6,17 @@ struct RawInboxResponse: Decodable {
 
 struct RawInbox: Decodable {
     let threads: [RawThread]
+    let oldestCursor: String?
 
-    enum CodingKeys: String, CodingKey { case threads }
+    enum CodingKeys: String, CodingKey {
+        case threads
+        case oldestCursor = "oldest_cursor"
+    }
 
     init(from decoder: Decoder) throws {
         let container = try decoder.container(keyedBy: CodingKeys.self)
         threads = container.decodeLossyArray(RawThread.self, forKey: .threads)
+        oldestCursor = try container.decodeIfPresent(String.self, forKey: .oldestCursor)
     }
 }
 

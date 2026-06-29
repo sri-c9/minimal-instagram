@@ -4,6 +4,7 @@ import Foundation
 public protocol SessionProviding: Sendable {
     func current() async -> Session?
     func updateClaim(_ claim: String) async
+    func updateMID(_ mid: String) async
 }
 
 /// Persists the session via a SecureStore; serves a cached copy; refreshes the claim.
@@ -30,6 +31,12 @@ public actor SessionStore: SessionProviding {
     public func updateClaim(_ claim: String) {
         guard var session = current(), session.claim != claim else { return }
         session.claim = claim
+        try? save(session)
+    }
+
+    public func updateMID(_ mid: String) {
+        guard var session = current(), session.device.mid != mid else { return }
+        session.device.mid = mid
         try? save(session)
     }
 

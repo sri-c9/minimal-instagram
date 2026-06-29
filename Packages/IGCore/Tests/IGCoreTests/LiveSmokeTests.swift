@@ -2,37 +2,39 @@ import Foundation
 import Testing
 @testable import IGCore
 
-// LIVE smoke tests — these hit REAL Instagram and are INERT unless you supply a
-// session through environment variables. The normal `swift test` run never touches
-// the network: with no env vars set, each test prints a skip notice and passes.
+// LIVE end-to-end smoke through the REFACTORED IGWebClient (mobile host + Bearer).
+// INERT unless IG_SESSIONID is set; a plain `swift test` prints a skip notice and passes.
+// Complements LiveTransportProbeV2 (standalone, validates the design): this exercises the
+// actual production transport — Session → SessionStore → IGWebClient → DomainMapper.
 //
-// Run explicitly (capture the values from a logged-in browser's DevTools → Network →
-// any /api/v1/... request → Request Headers):
-//
-//   IG_COOKIE='sessionid=…; csrftoken=…; ds_user_id=…' \
-//   IG_CSRF='…' \
-//   IG_UA='Mozilla/5.0 (…) …' \
+//   IG_SESSIONID='<raw sessionid>' \
+//   IG_IOS_UA='Instagram 309.0.0.40.113 (iPhone15,3; iOS 17_5_1; en_US; en-US; scale=3.00; 1179x2556; 0) AppleWebKit/605.1.15' \
 //     swift test --filter LiveSmokeTests
 //
-// SECURITY: a real sessionid is password-grade — never hardcode it, never commit it.
-// These tests print COUNTS ONLY (no message text, names, or IDs) so real DM content
-// never lands in your terminal scrollback or CI logs.
+//   Optional overrides: IG_DSUSERID, IG_MID, IG_DEVICE_ID, IG_FAMILY_ID, IG_BLOKS, IG_APP_VERSION.
 //
-// BAN-RISK: use your browser's exact User-Agent, run from the same machine/IP, and
-// run sparingly. Automated fetches with a mismatched fingerprint are the risky pattern.
+// SECURITY: sessionid is password-grade — never hardcode/commit; rotate after probing.
+// Prints COUNTS ONLY (no message text, names, or IDs).
 @Suite(.serialized) struct LiveSmokeTests {
 
-    /// A real session built from the environment, or nil (the test then no-ops).
     private func liveSession() -> Session? {
         let env = ProcessInfo.processInfo.environment
-        guard let cookie = env["IG_COOKIE"], !cookie.isEmpty,
-              let csrf = env["IG_CSRF"], !csrf.isEmpty,
-              let ua = env["IG_UA"], !ua.isEmpty else { return nil }
-        // dsUserID isn't sent as its own header (it rides in the cookie), so "" is fine here.
-        return Session(cookieHeader: cookie, csrfToken: csrf, dsUserID: "", userAgent: ua)
+        guard let sid = env["IG_SESSIONID"], !sid.isEmpty else { return nil }
+        func opt(_ k: String) -> String? { env[k].flatMap { $0.isEmpty ? nil : $0 } }
+        let ds = opt("IG_DSUSERID") ?? String(sid.prefix { $0.isNumber })
+        let ua = opt("IG_IOS_UA")
+            ?? "Instagram 309.0.0.40.113 (iPhone15,3; iOS 17_5_1; en_US; en-US; scale=3.00; 1179x2556; 0) AppleWebKit/605.1.15"
+        let device = DeviceIdentity(
+            deviceID: opt("IG_DEVICE_ID") ?? UUID().uuidString,
+            familyDeviceID: opt("IG_FAMILY_ID") ?? UUID().uuidString,
+            mid: env["IG_MID"] ?? "",
+            bloksVersionID: opt("IG_BLOKS") ?? String(repeating: "0", count: 64),
+            appVersion: opt("IG_APP_VERSION") ?? "309.0.0.40.113",
+            capabilities: "3brTv10=",
+            userAgent: ua)
+        return Session(sessionid: sid, dsUserID: ds, claim: "0", device: device)
     }
 
-    /// Wires a real session through SessionStore into a client backed by the real network.
     private func liveClient(_ session: Session) async throws -> IGWebClient {
         let store = SessionStore(store: InMemorySecureStore())
         try await store.save(session)
@@ -41,28 +43,22 @@ import Testing
 
     @Test func liveInboxAndThreadSmoke() async throws {
         guard let session = liveSession() else {
-            print("⏭️  LiveSmoke skipped — set IG_COOKIE / IG_CSRF / IG_UA to run against real Instagram.")
+            print("⏭️  LiveSmoke skipped — set IG_SESSIONID (and ideally IG_IOS_UA) to run.")
             return
         }
         let client = try await liveClient(session)
 
-        // 1) Inbox: real JSON → decoded DTOs → firewall → domain Conversations.
         let rawInbox = try await client.inbox(limit: 10)
         let convos = DomainMapper.mapInbox(rawInbox)
         print("✅ inbox: \(rawInbox.inbox.threads.count) raw threads → \(convos.count) mapped conversations")
         #expect(!convos.isEmpty)
 
-        // 2) First thread end-to-end. The raw→mapped delta is the firewall dropping
-        //    ads/suggestions/unknown item types on live data.
         guard let firstID = rawInbox.inbox.threads.first?.threadID, !firstID.isEmpty else {
-            print("ℹ️  no threads to drill into")
-            return
+            print("ℹ️  no threads to drill into"); return
         }
         let rawThread = try await client.thread(id: firstID, limit: 20)
         let detail = DomainMapper.mapThread(rawThread)
-        let rawCount = rawThread.thread.items.count
-        let dropped = rawCount - detail.items.count
-        print("✅ thread: \(rawCount) raw items → \(detail.items.count) mapped items (firewall dropped \(dropped))")
+        print("✅ thread: \(rawThread.thread.items.count) raw items → \(detail.items.count) mapped items")
         #expect(!detail.id.isEmpty)
     }
 }

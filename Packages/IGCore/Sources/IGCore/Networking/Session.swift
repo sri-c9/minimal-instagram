@@ -1,20 +1,23 @@
 import Foundation
 
-/// An authenticated IG web session. Captured once via WebView login (later increment),
-/// persisted in the Keychain. `claim` self-refreshes from response headers; `userAgent`
-/// is the exact WebView UA so JSON calls match the login fingerprint (§7).
+/// An authenticated IG session for the mobile private API (§5.1). Minted once via
+/// WebView web login (deferred), persisted in the Keychain. `Authorization: Bearer IGT:2:`
+/// is built from `sessionid` + `dsUserID` (§7); `device` is the stable fingerprint (§5.2);
+/// `claim` self-refreshes from response headers. `csrfToken` is retained only for the
+/// deferred write (POST) path — it is NOT sent on reads.
 public struct Session: Sendable, Equatable, Codable {
-    public var cookieHeader: String   // full Cookie: header value (sessionid=...; csrftoken=...; ds_user_id=...)
-    public var csrfToken: String      // csrftoken cookie value, sent as X-CSRFToken
-    public var dsUserID: String       // ds_user_id
-    public var claim: String          // X-IG-WWW-Claim; "0" until the first response sets it
-    public var userAgent: String
+    public var sessionid: String       // password-grade; the Bearer is built from this
+    public var dsUserID: String        // ds_user_id; sent as IG-INTENDED-USER-ID
+    public var claim: String           // X-IG-WWW-Claim; "0" until a response sets it
+    public var device: DeviceIdentity  // stable fingerprint incl. rendered userAgent (§5.2)
+    public var csrfToken: String       // deferred POST path only; NOT sent on reads
 
-    public init(cookieHeader: String, csrfToken: String, dsUserID: String, claim: String = "0", userAgent: String) {
-        self.cookieHeader = cookieHeader
-        self.csrfToken = csrfToken
+    public init(sessionid: String, dsUserID: String, claim: String = "0",
+                device: DeviceIdentity, csrfToken: String = "") {
+        self.sessionid = sessionid
         self.dsUserID = dsUserID
         self.claim = claim
-        self.userAgent = userAgent
+        self.device = device
+        self.csrfToken = csrfToken
     }
 }

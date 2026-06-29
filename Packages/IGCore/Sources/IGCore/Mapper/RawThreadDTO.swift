@@ -8,11 +8,13 @@ struct RawThreadDetail: Decodable {
     let threadID: String?
     let users: [RawUser]
     let items: [RawItem]
+    let oldestCursor: String?
 
     enum CodingKeys: String, CodingKey {
         case threadID = "thread_id"
         case users
         case items
+        case oldestCursor = "oldest_cursor"
     }
 
     init(from decoder: Decoder) throws {
@@ -20,6 +22,7 @@ struct RawThreadDetail: Decodable {
         threadID = try container.decodeIfPresent(String.self, forKey: .threadID)
         users = container.decodeLossyArray(RawUser.self, forKey: .users)
         items = container.decodeLossyArray(RawItem.self, forKey: .items)
+        oldestCursor = try container.decodeIfPresent(String.self, forKey: .oldestCursor)
     }
 }
 
