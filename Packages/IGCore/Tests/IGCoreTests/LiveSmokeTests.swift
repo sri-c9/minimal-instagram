@@ -8,7 +8,7 @@ import Testing
 // actual production transport — Session → SessionStore → IGWebClient → DomainMapper.
 //
 //   IG_SESSIONID='<raw sessionid>' \
-//   IG_IOS_UA='Instagram 309.0.0.40.113 (iPhone15,3; iOS 17_5_1; en_US; en-US; scale=3.00; 1179x2556; 0) AppleWebKit/605.1.15' \
+//   IG_IOS_UA='<Instagram iOS user-agent>' \
 //     swift test --filter LiveSmokeTests
 //
 //   Optional overrides: IG_DSUSERID, IG_MID, IG_DEVICE_ID, IG_FAMILY_ID, IG_BLOKS, IG_APP_VERSION.
@@ -20,10 +20,11 @@ import Testing
     private func liveSession() -> Session? {
         let env = ProcessInfo.processInfo.environment
         guard let sid = env["IG_SESSIONID"], !sid.isEmpty else { return nil }
-        func opt(_ k: String) -> String? { env[k].flatMap { $0.isEmpty ? nil : $0 } }
+        func opt(_ key: String) -> String? { env[key].flatMap { $0.isEmpty ? nil : $0 } }
         let ds = opt("IG_DSUSERID") ?? String(sid.prefix { $0.isNumber })
         let ua = opt("IG_IOS_UA")
-            ?? "Instagram 309.0.0.40.113 (iPhone15,3; iOS 17_5_1; en_US; en-US; scale=3.00; 1179x2556; 0) AppleWebKit/605.1.15"
+            ?? "Instagram 309.0.0.40.113 (iPhone15,3; iOS 17_5_1; en_US; en-US; "
+            + "scale=3.00; 1179x2556; 0) AppleWebKit/605.1.15"
         let device = DeviceIdentity(
             deviceID: opt("IG_DEVICE_ID") ?? UUID().uuidString,
             familyDeviceID: opt("IG_FAMILY_ID") ?? UUID().uuidString,

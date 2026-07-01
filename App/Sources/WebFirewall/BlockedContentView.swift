@@ -8,13 +8,14 @@ struct BlockedContentView: View {
             Image(systemName: "shield.lefthalf.filled")
                 .font(.system(size: 44, weight: .regular))
                 .foregroundStyle(.secondary)
+                .accessibilityHidden(true)
 
             VStack(spacing: 8) {
-                Text("This part of Instagram is blocked")
+                Text("This Instagram route is blocked")
                     .font(.headline)
                     .multilineTextAlignment(.center)
 
-                Text("Minimal Instagram only opens DMs and media shared in DMs.")
+                Text("Minimal Instagram keeps this WebView focused on DMs and media opened from DMs.")
                     .font(.subheadline)
                     .foregroundStyle(.secondary)
                     .multilineTextAlignment(.center)
@@ -23,14 +24,16 @@ struct BlockedContentView: View {
             Button(action: backToDMs) {
                 Text("Back to DMs")
                     .font(.body.weight(.semibold))
-                    .frame(maxWidth: .infinity)
+                    .frame(maxWidth: .infinity, minHeight: 44)
             }
             .buttonStyle(.borderedProminent)
             .controlSize(.large)
+            .accessibilityHint("Returns to your last direct message route")
         }
         .padding(24)
         .frame(maxWidth: 380)
         .background(.regularMaterial, in: RoundedRectangle(cornerRadius: 28, style: .continuous))
         .padding(24)
+        .accessibilityElement(children: .contain)
     }
 }

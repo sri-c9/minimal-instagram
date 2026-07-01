@@ -1,5 +1,17 @@
 import Foundation
 
+private struct IGAuthorizationPayload: Encodable {
+    let dsUserID: String
+    let sessionid: String
+    let shouldUseHeaderOverCookies: Bool
+
+    enum CodingKeys: String, CodingKey {
+        case dsUserID = "ds_user_id"
+        case sessionid
+        case shouldUseHeaderOverCookies = "should_use_header_over_cookies"
+    }
+}
+
 /// Pure transport: authed GETs to i.instagram.com/api/v1/direct_v2/*, returns raw DTOs.
 /// No mapping (DomainMapper does that). Builds the iOS private-API header set (§5.3) +
 /// Bearer auth (§7); refreshes X-IG-WWW-Claim from responses.
@@ -16,7 +28,7 @@ struct IGWebClient: Sendable {
     }
 
     func inbox(limit: Int = 20, cursor: String? = nil) async throws -> RawInboxResponse {
-        var q = [
+        var query = [
             "visual_message_return_type": "unseen",
             "thread_message_limit": "10",
             "persistentBadging": "true",
@@ -27,25 +39,25 @@ struct IGWebClient: Sendable {
             "no_pending_badge": "true",
             "push_disabled": "false",
             "eb_device_id": "0",
-            "igd_request_log_tracking_id": UUID().uuidString,
+            "igd_request_log_tracking_id": UUID().uuidString
         ]
         if let cursor {
-            q["cursor"] = cursor
-            q["direction"] = "older"
-            q["fetch_reason"] = "page_scroll"   // overrides initial_snapshot
+            query["cursor"] = cursor
+            query["direction"] = "older"
+            query["fetch_reason"] = "page_scroll"   // overrides initial_snapshot
         }
-        return try await get("/api/v1/direct_v2/inbox/", query: q, as: RawInboxResponse.self)
+        return try await get("/api/v1/direct_v2/inbox/", query: query, as: RawInboxResponse.self)
     }
 
     func thread(id: String, limit: Int = 20, cursor: String? = nil) async throws -> RawThreadResponse {
-        var q = [
+        var query = [
             "visual_message_return_type": "unseen",
             "direction": "older",
             "seq_id": "40065",
-            "limit": String(limit),
+            "limit": String(limit)
         ]
-        if let cursor { q["cursor"] = cursor }
-        return try await get("/api/v1/direct_v2/threads/\(id)/", query: q, as: RawThreadResponse.self)
+        if let cursor { query["cursor"] = cursor }
+        return try await get("/api/v1/direct_v2/threads/\(id)/", query: query, as: RawThreadResponse.self)
     }
 
     // Shared request builder + claim refresh + error mapping.
@@ -98,17 +110,17 @@ struct IGWebClient: Sendable {
     /// until IG issues it (§5.3). Reserved headers (Host/Connection/Accept-Encoding) are set
     /// for fidelity but URLSession may override them (C5) — tests never assert them.
     private func applyHeaders(to req: inout URLRequest, _ session: Session) {
-        let d = session.device
-        func set(_ v: String, _ h: String) { req.setValue(v, forHTTPHeaderField: h) }
+        let device = session.device
+        func set(_ value: String, _ header: String) { req.setValue(value, forHTTPHeaderField: header) }
 
         // Tier A — stable device identity
-        set(d.deviceID, "X-IG-Device-ID")
-        set(d.familyDeviceID, "X-IG-Family-Device-ID")
-        if !d.mid.isEmpty { set(d.mid, "X-MID") }   // omit until bootstrapped (C10)
-        set(d.bloksVersionID, "X-Bloks-Version-Id")
+        set(device.deviceID, "X-IG-Device-ID")
+        set(device.familyDeviceID, "X-IG-Family-Device-ID")
+        if !device.mid.isEmpty { set(device.mid, "X-MID") }   // omit until bootstrapped (C10)
+        set(device.bloksVersionID, "X-Bloks-Version-Id")
         set(appID, "X-IG-App-ID")
-        set(d.capabilities, "X-IG-Capabilities")
-        set(d.userAgent, "User-Agent")
+        set(device.capabilities, "X-IG-Capabilities")
+        set(device.userAgent, "User-Agent")
         set("US", "X-IG-App-Startup-Country")
         set(String(TimeZone.current.secondsFromGMT()), "X-IG-Timezone-Offset")  // signed seconds (C12)
         set("WIFI", "X-IG-Connection-Type")
@@ -150,13 +162,8 @@ struct IGWebClient: Sendable {
     /// `.sortedKeys` makes the bytes reproducible (C6); `dsUserID` is taken from the session,
     /// never re-derived from the sessionid (C13). No cookie, no signing (GET).
     static func buildBearer(for session: Session) -> String {
-        struct AuthData: Encodable {
-            let ds_user_id: String
-            let sessionid: String
-            let should_use_header_over_cookies: Bool
-        }
-        let payload = AuthData(ds_user_id: session.dsUserID, sessionid: session.sessionid,
-                               should_use_header_over_cookies: true)
+        let payload = IGAuthorizationPayload(dsUserID: session.dsUserID, sessionid: session.sessionid,
+                                             shouldUseHeaderOverCookies: true)
         let encoder = JSONEncoder()
         encoder.outputFormatting = .sortedKeys
         guard let json = try? encoder.encode(payload) else { return "" }

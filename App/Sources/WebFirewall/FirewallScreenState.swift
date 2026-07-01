@@ -23,4 +23,17 @@ enum FirewallScreenState: Equatable {
             false
         }
     }
+
+    var statusTitle: String {
+        switch self {
+        case .web:
+            "DMs"
+        case .media:
+            "Media"
+        case .blocked:
+            "Blocked"
+        case .error:
+            "Offline"
+        }
+    }
 }
