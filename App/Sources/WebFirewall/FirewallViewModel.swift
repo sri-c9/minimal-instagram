@@ -45,9 +45,11 @@ final class FirewallViewModel: ObservableObject {
     }
 
     func backToDMs() {
-        let returnURL = screen.returnURL ?? routeFirewall.backToDMsURL()
-        pendingLoadURL = returnURL
-        screen = .web
+        load(screen.returnURL ?? routeFirewall.backToDMsURL())
+    }
+
+    func reloadInstagram() {
+        load(homeURL)
     }
 
     func consumePendingLoadURL() -> URL? {
@@ -71,6 +73,12 @@ final class FirewallViewModel: ObservableObject {
                 self.reloadToken = UUID()
             }
         }
+    }
+
+    private func load(_ url: URL) {
+        pendingLoadURL = url
+        isLoading = true
+        screen = .web
     }
 
     private func apply(_ decision: RouteDecision, targetURL: URL) {
