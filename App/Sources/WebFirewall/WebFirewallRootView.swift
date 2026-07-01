@@ -62,6 +62,7 @@ struct WebFirewallRootView: View {
     private var webContent: some View {
         ZStack {
             FirewallWebView(model: model, reloadToken: model.reloadToken)
+                .id(model.reloadToken)
 
             if model.isLoading {
                 ProgressView()

@@ -14,7 +14,7 @@ import Testing
         let decision = firewall.decision(for: threadURL, currentURL: nil)
 
         #expect(decision == .allow)
-        #expect(firewall.lastDMURL == threadURL)
+        #expect(firewall.backToDMsURL() == threadURL)
     }
 
     @Test func authRoutesAreAllowed() throws {
@@ -86,6 +86,28 @@ import Testing
         let httpURL = try url("http://www.instagram.com/direct/inbox/")
 
         #expect(firewall.decision(for: httpURL, currentURL: nil) == .block(returnURL: RouteFirewall.inboxURL))
+    }
+
+    @Test func credentialedAndNonDefaultPortInstagramURLsAreBlocked() throws {
+        var firewall = RouteFirewall()
+        let credentialedURL = try url("https://user:pass@www.instagram.com/direct/inbox/")
+        let nonDefaultPortURL = try url("https://www.instagram.com:8443/direct/inbox/")
+
+        #expect(firewall.decision(for: credentialedURL, currentURL: nil) == .block(returnURL: RouteFirewall.inboxURL))
+        #expect(firewall.decision(for: nonDefaultPortURL, currentURL: nil) == .block(returnURL: RouteFirewall.inboxURL))
+        #expect(RouteFirewall(lastDMURL: credentialedURL).backToDMsURL() == RouteFirewall.inboxURL)
+    }
+
+    @Test func routeMemoryStripsQueryAndFragment() throws {
+        var firewall = RouteFirewall()
+        let threadURL = try url("https://www.instagram.com/direct/t/12345/?igsh=token#frag")
+        let expectedThreadURL = try url("https://www.instagram.com/direct/t/12345/")
+        let reelURL = try url("https://www.instagram.com/reel/ABC123/?utm_source=feed#comments")
+
+        #expect(RouteFirewall(lastDMURL: threadURL).backToDMsURL() == expectedThreadURL)
+        #expect(firewall.decision(for: threadURL, currentURL: nil) == .allow)
+        #expect(firewall.backToDMsURL() == expectedThreadURL)
+        #expect(firewall.decision(for: reelURL, currentURL: threadURL) == .allowMedia(returnURL: expectedThreadURL))
     }
 
     @Test func backToDMsFallsBackToInboxWhenNoThreadIsKnown() {

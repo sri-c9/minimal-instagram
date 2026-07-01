@@ -7,9 +7,9 @@ import WebKit
 final class FirewallViewModel: ObservableObject {
     @Published var screen: FirewallScreenState = .web
     @Published var isLoading = false
-    @Published var currentURL: URL?
     @Published var reloadToken = UUID()
 
+    private var currentDirectURL: URL?
     private var routeFirewall = RouteFirewall()
     private var pendingLoadURL: URL?
 
@@ -18,22 +18,29 @@ final class FirewallViewModel: ObservableObject {
     var showsBackToDMs: Bool { screen.showsBackToDMs }
 
     func decision(for targetURL: URL) -> RouteDecision {
-        let decision = routeFirewall.decision(for: targetURL, currentURL: currentURL)
+        let decision = routeFirewall.decision(for: targetURL, currentURL: currentDirectURL)
         apply(decision, targetURL: targetURL)
         return decision
     }
 
     func observeCommittedURL(_ url: URL) {
-        currentURL = url
-        routeFirewall.rememberIfDM(url)
+        if RouteFirewall.isDirectURL(url) {
+            let routeURL = RouteFirewall.routeURL(for: url)
+            currentDirectURL = routeURL
+            routeFirewall.rememberIfDM(routeURL)
+            screen = .web
+            return
+        }
 
-        if RouteFirewall.isDirectURL(url) || RouteFirewall.isAllowedAuthURL(url) {
+        currentDirectURL = nil
+        if RouteFirewall.isAllowedAuthURL(url) {
             screen = .web
         }
     }
 
     func fail(_ error: Error) {
         isLoading = false
+        guard !error.isNavigationCancellation else { return }
         screen = .error(error.localizedDescription)
     }
 
@@ -57,7 +64,7 @@ final class FirewallViewModel: ObservableObject {
             Task { @MainActor in
                 guard let self else { return }
                 self.isLoading = false
-                self.currentURL = nil
+                self.currentDirectURL = nil
                 self.routeFirewall = RouteFirewall()
                 self.pendingLoadURL = nil
                 self.screen = .web
@@ -73,9 +80,23 @@ final class FirewallViewModel: ObservableObject {
                 screen = .web
             }
         case .allowMedia(let returnURL):
+            currentDirectURL = nil
             screen = .media(returnURL: returnURL)
         case .block(let returnURL):
+            isLoading = false
             screen = .blocked(returnURL: returnURL)
         }
+    }
+}
+
+private extension Error {
+    var isNavigationCancellation: Bool {
+        let error = self as NSError
+        if error.domain == NSURLErrorDomain, error.code == NSURLErrorCancelled {
+            return true
+        }
+
+        // WebKit also reports policy-cancelled loads as WebKitErrorDomain code 102.
+        return error.domain == WKErrorDomain && error.code == 102
     }
 }
