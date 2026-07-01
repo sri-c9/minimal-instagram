@@ -6,6 +6,29 @@ distracting routes like feed/explore/reels/search, and allows media only when it
 is opened from a DM. No private Instagram API, session extraction, backend
 bridge, polling, or message scraping is part of the V1 app flow.
 
+## Instagram ToS / account-safety posture
+
+This is not legal advice, but the working interpretation for this project is:
+
+- Official Instagram Terms of Use: https://help.instagram.com/581066165581870
+- The relevant section is **4.2 — How You Can't Use Instagram**.
+- A personal, WebView-only wrapper that lets the user manually log into
+  Instagram's official web UI is the lowest-risk version of this idea, though not
+  zero-risk.
+- The WebView route firewall / local CSS-JS injection is a gray area: it only
+  changes the local user experience, but Instagram's terms broadly restrict
+  modifying, interfering with, or impairing the intended operation of the service.
+- Programmatic access is out of scope for the V1 app flow. In particular, private
+  Instagram APIs, extracted cookies/session tokens, mobile-header spoofing,
+  scraping/parsing DMs outside the WebView, background polling, or automated sends
+  should be treated as likely ToS-violating and materially higher account-risk.
+- The app must not collect credentials, export private DM data, share accounts or
+  access tokens, bypass checkpoints/rate limits, or distribute this as a general
+  third-party Instagram client.
+- Instagram's "new login" notification showing `Apple iPhone · Mobile Safari
+  WebView` is expected for a first run in `WKWebView`; it is not by itself
+  evidence of a ToS violation.
+
 See `docs/` for the product and technical design.
 
 ## Layout
