@@ -2,6 +2,7 @@ import SwiftUI
 
 struct WebFirewallRootView: View {
     @StateObject private var model = FirewallViewModel()
+    @State private var showingSettings = false
 
     var body: some View {
         ZStack {
@@ -18,6 +19,11 @@ struct WebFirewallRootView: View {
                 BlockedContentView {
                     model.backToDMs()
                 }
+            }
+        }
+        .sheet(isPresented: $showingSettings) {
+            SettingsView {
+                model.logout()
             }
         }
     }
@@ -38,6 +44,15 @@ struct WebFirewallRootView: View {
                 .font(.headline)
 
             Spacer()
+
+            Button {
+                showingSettings = true
+            } label: {
+                Image(systemName: "gearshape")
+                    .imageScale(.medium)
+            }
+            .buttonStyle(.bordered)
+            .accessibilityLabel("Settings")
         }
         .padding(.horizontal, 16)
         .padding(.vertical, 10)

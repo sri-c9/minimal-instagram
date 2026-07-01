@@ -1,6 +1,7 @@
 import Combine
 import Foundation
 import IGCore
+import WebKit
 
 @MainActor
 final class FirewallViewModel: ObservableObject {
@@ -46,6 +47,23 @@ final class FirewallViewModel: ObservableObject {
         let url = pendingLoadURL
         pendingLoadURL = nil
         return url
+    }
+
+    func logout() {
+        isLoading = true
+        let dataStore = WKWebsiteDataStore.default()
+        dataStore.removeData(ofTypes: WKWebsiteDataStore.allWebsiteDataTypes(),
+                             modifiedSince: .distantPast) { [weak self] in
+            Task { @MainActor in
+                guard let self else { return }
+                self.isLoading = false
+                self.currentURL = nil
+                self.routeFirewall = RouteFirewall()
+                self.pendingLoadURL = nil
+                self.screen = .web
+                self.reloadToken = UUID()
+            }
+        }
     }
 
     private func apply(_ decision: RouteDecision, targetURL: URL) {
