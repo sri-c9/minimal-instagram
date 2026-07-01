@@ -6,11 +6,15 @@ struct WebFirewallRootView: View {
 
     var body: some View {
         ZStack {
+            Color(.systemBackground)
+                .ignoresSafeArea()
+
             VStack(spacing: 0) {
                 topBar
                 Divider()
                 webContent
             }
+            .frame(maxWidth: .infinity, maxHeight: .infinity)
 
             if case .blocked = model.screen {
                 Color.black.opacity(0.18)
@@ -71,6 +75,7 @@ struct WebFirewallRootView: View {
         ZStack {
             FirewallWebView(model: model, reloadToken: model.reloadToken)
                 .id(model.reloadToken)
+                .frame(maxWidth: .infinity, maxHeight: .infinity)
 
             if model.isLoading {
                 ProgressView()
@@ -83,6 +88,8 @@ struct WebFirewallRootView: View {
                 errorView(message)
             }
         }
+        .frame(maxWidth: .infinity, maxHeight: .infinity)
+        .clipped()
         .overlay(alignment: .top) {
             if case .media = model.screen {
                 MediaModeBanner {
