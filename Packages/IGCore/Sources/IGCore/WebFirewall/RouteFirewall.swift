@@ -14,71 +14,100 @@ public struct RouteFirewall: Equatable, Sendable {
         return url
     }
 
-    public private(set) var lastDMURL: URL?
+    private var lastDMURL: URL?
 
     public init(lastDMURL: URL? = nil) {
-        self.lastDMURL = lastDMURL
+        if let lastDMURL, Self.isDirectURL(lastDMURL) {
+            self.lastDMURL = Self.routeURL(for: lastDMURL)
+        }
     }
 
     public mutating func decision(for targetURL: URL, currentURL: URL?) -> RouteDecision {
         guard Self.isInstagramWebURL(targetURL) else {
             return .block(returnURL: backToDMsURL())
         }
+        let targetRouteURL = Self.routeURL(for: targetURL)
 
-        if Self.isAllowedAuthURL(targetURL) {
+        if Self.isAllowedAuthURL(targetRouteURL) {
             return .allow
         }
 
-        if Self.isDirectURL(targetURL) {
-            lastDMURL = targetURL
+        if Self.isDirectURL(targetRouteURL) {
+            lastDMURL = targetRouteURL
             return .allow
         }
 
-        if Self.isMediaURL(targetURL), let currentURL, Self.isDirectURL(currentURL) {
-            lastDMURL = currentURL
-            return .allowMedia(returnURL: currentURL)
+        if Self.isMediaURL(targetRouteURL), let currentURL, Self.isDirectURL(currentURL) {
+            let currentRouteURL = Self.routeURL(for: currentURL)
+            lastDMURL = currentRouteURL
+            return .allowMedia(returnURL: currentRouteURL)
         }
 
         return .block(returnURL: backToDMsURL())
     }
 
     public mutating func rememberIfDM(_ url: URL) {
-        guard Self.isInstagramWebURL(url), Self.isDirectURL(url) else { return }
-        lastDMURL = url
+        guard Self.isDirectURL(url) else { return }
+        lastDMURL = Self.routeURL(for: url)
     }
 
     public func backToDMsURL() -> URL {
         lastDMURL ?? Self.inboxURL
     }
 
+    public static func routeURL(for url: URL) -> URL {
+        guard var components = URLComponents(url: url, resolvingAgainstBaseURL: false) else {
+            return url
+        }
+
+        components.scheme = components.scheme?.lowercased()
+        components.host = components.host?.lowercased()
+        components.user = nil
+        components.password = nil
+        components.port = nil
+        components.query = nil
+        components.fragment = nil
+        return components.url ?? url
+    }
+
     public static func isAllowedAuthURL(_ url: URL) -> Bool {
         guard isInstagramWebURL(url) else { return false }
-        return path(url, is: "/accounts/login")
-            || path(url, hasPrefix: "/accounts/login/")
-            || path(url, is: "/accounts/onetap")
-            || path(url, hasPrefix: "/accounts/onetap/")
-            || path(url, is: "/challenge")
-            || path(url, hasPrefix: "/challenge/")
+        let normalizedURL = Self.routeURL(for: url)
+        return path(normalizedURL, is: "/accounts/login")
+            || path(normalizedURL, hasPrefix: "/accounts/login/")
+            || path(normalizedURL, is: "/accounts/onetap")
+            || path(normalizedURL, hasPrefix: "/accounts/onetap/")
+            || path(normalizedURL, is: "/challenge")
+            || path(normalizedURL, hasPrefix: "/challenge/")
     }
 
     public static func isDirectURL(_ url: URL) -> Bool {
         guard isInstagramWebURL(url) else { return false }
-        return path(url, is: "/direct") || path(url, hasPrefix: "/direct/")
+        let normalizedURL = Self.routeURL(for: url)
+        return path(normalizedURL, is: "/direct") || path(normalizedURL, hasPrefix: "/direct/")
     }
 
     public static func isMediaURL(_ url: URL) -> Bool {
         guard isInstagramWebURL(url) else { return false }
-        return path(url, is: "/reel")
-            || path(url, hasPrefix: "/reel/")
-            || path(url, is: "/p")
-            || path(url, hasPrefix: "/p/")
-            || path(url, is: "/stories")
-            || path(url, hasPrefix: "/stories/")
+        let normalizedURL = Self.routeURL(for: url)
+        return path(normalizedURL, is: "/reel")
+            || path(normalizedURL, hasPrefix: "/reel/")
+            || path(normalizedURL, is: "/p")
+            || path(normalizedURL, hasPrefix: "/p/")
+            || path(normalizedURL, is: "/stories")
+            || path(normalizedURL, hasPrefix: "/stories/")
     }
 
     private static func isInstagramWebURL(_ url: URL) -> Bool {
         guard url.scheme?.lowercased() == "https",
-              let host = url.host?.lowercased() else { return false }
+              let host = url.host?.lowercased(),
+              url.user == nil,
+              url.password == nil else { return false }
+
+        if let port = url.port, port != 443 {
+            return false
+        }
+
         return host == "instagram.com" || host == "www.instagram.com"
     }
 
