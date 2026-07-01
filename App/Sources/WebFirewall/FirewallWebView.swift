@@ -14,6 +14,15 @@ struct FirewallWebView: UIViewRepresentable {
         let configuration = WKWebViewConfiguration()
         configuration.websiteDataStore = .default()
 
+        let userContentController = WKUserContentController()
+        userContentController.addUserScript(
+            WKUserScript(source: MinimalStyleInjector.source,
+                         injectionTime: .atDocumentEnd,
+                         forMainFrameOnly: true)
+        )
+        userContentController.add(context.coordinator, name: MinimalStyleInjector.routeMessageName)
+        configuration.userContentController = userContentController
+
         let webView = WKWebView(frame: .zero, configuration: configuration)
         webView.navigationDelegate = context.coordinator
         webView.allowsBackForwardNavigationGestures = false
@@ -40,8 +49,15 @@ struct FirewallWebView: UIViewRepresentable {
         }
     }
 
+    static func dismantleUIView(_ webView: WKWebView, coordinator: Coordinator) {
+        webView.configuration.userContentController.removeScriptMessageHandler(
+            forName: MinimalStyleInjector.routeMessageName
+        )
+        webView.navigationDelegate = nil
+    }
+
     @MainActor
-    final class Coordinator: NSObject, WKNavigationDelegate {
+    final class Coordinator: NSObject, WKNavigationDelegate, WKScriptMessageHandler {
         var model: FirewallViewModel
         weak var webView: WKWebView?
         var reloadToken: UUID?
@@ -77,6 +93,21 @@ struct FirewallWebView: UIViewRepresentable {
                      didFailProvisionalNavigation navigation: WKNavigation!,
                      withError error: Error) {
             model.fail(error)
+        }
+
+        func userContentController(_ userContentController: WKUserContentController,
+                                   didReceive message: WKScriptMessage) {
+            guard message.name == MinimalStyleInjector.routeMessageName,
+                  let href = message.body as? String,
+                  let url = URL(string: href) else { return }
+
+            let decision = model.decision(for: url)
+            switch decision {
+            case .allow, .allowMedia:
+                model.observeCommittedURL(url)
+            case .block:
+                webView?.stopLoading()
+            }
         }
 
         func webView(_ webView: WKWebView,
