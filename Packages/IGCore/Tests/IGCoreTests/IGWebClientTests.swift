@@ -77,9 +77,9 @@ import Testing
     @Test func emptyDeviceMIDOmitsXMIDHeader() async throws {
         let body = try Fixture.data("inbox_real")
         MockURLProtocol.responder = { _ in (200, [:], body) }
-        var s = session()
-        s.device.mid = ""
-        let client = IGWebClient(session: FakeSession(s), urlSession: MockURLProtocol.session())
+        var mutableSession = session()
+        mutableSession.device.mid = ""
+        let client = IGWebClient(session: FakeSession(mutableSession), urlSession: MockURLProtocol.session())
         _ = try await client.inbox()
         #expect(MockURLProtocol.lastRequest?.value(forHTTPHeaderField: "X-MID") == nil)
     }
@@ -89,13 +89,13 @@ import Testing
         MockURLProtocol.responder = { _ in (200, [:], body) }
         let client = IGWebClient(session: FakeSession(session()), urlSession: MockURLProtocol.session())
         _ = try await client.inbox(limit: 20)
-        let q = try #require(MockURLProtocol.lastRequest?.url?.query)
-        #expect(q.contains("visual_message_return_type=unseen"))
-        #expect(q.contains("thread_message_limit=10"))
-        #expect(q.contains("fetch_reason=initial_snapshot"))
-        #expect(q.contains("limit=20"))
-        #expect(q.contains("igd_request_log_tracking_id="))
-        #expect(!q.contains("cursor="))
+        let query = try #require(MockURLProtocol.lastRequest?.url?.query)
+        #expect(query.contains("visual_message_return_type=unseen"))
+        #expect(query.contains("thread_message_limit=10"))
+        #expect(query.contains("fetch_reason=initial_snapshot"))
+        #expect(query.contains("limit=20"))
+        #expect(query.contains("igd_request_log_tracking_id="))
+        #expect(!query.contains("cursor="))
     }
 
     @Test func inboxPaginationAddsCursorAndPageScroll() async throws {
@@ -103,11 +103,11 @@ import Testing
         MockURLProtocol.responder = { _ in (200, [:], body) }
         let client = IGWebClient(session: FakeSession(session()), urlSession: MockURLProtocol.session())
         _ = try await client.inbox(limit: 20, cursor: "CUR123")
-        let q = try #require(MockURLProtocol.lastRequest?.url?.query)
-        #expect(q.contains("cursor=CUR123"))
-        #expect(q.contains("direction=older"))
-        #expect(q.contains("fetch_reason=page_scroll"))
-        #expect(!q.contains("fetch_reason=initial_snapshot"))
+        let query = try #require(MockURLProtocol.lastRequest?.url?.query)
+        #expect(query.contains("cursor=CUR123"))
+        #expect(query.contains("direction=older"))
+        #expect(query.contains("fetch_reason=page_scroll"))
+        #expect(!query.contains("fetch_reason=initial_snapshot"))
     }
 
     @Test func threadBuildsRequestWithIDAndDecodes() async throws {
@@ -129,12 +129,12 @@ import Testing
         MockURLProtocol.responder = { _ in (200, [:], body) }
         let client = IGWebClient(session: FakeSession(session()), urlSession: MockURLProtocol.session())
         _ = try await client.thread(id: "rt_real_1")
-        let q = try #require(MockURLProtocol.lastRequest?.url?.query)
-        #expect(q.contains("visual_message_return_type=unseen"))
-        #expect(q.contains("direction=older"))
-        #expect(q.contains("seq_id=40065"))
-        #expect(q.contains("limit=20"))
-        #expect(!q.contains("cursor="))
+        let query = try #require(MockURLProtocol.lastRequest?.url?.query)
+        #expect(query.contains("visual_message_return_type=unseen"))
+        #expect(query.contains("direction=older"))
+        #expect(query.contains("seq_id=40065"))
+        #expect(query.contains("limit=20"))
+        #expect(!query.contains("cursor="))
     }
 
     @Test func threadPaginationAddsCursor() async throws {
@@ -142,8 +142,8 @@ import Testing
         MockURLProtocol.responder = { _ in (200, [:], body) }
         let client = IGWebClient(session: FakeSession(session()), urlSession: MockURLProtocol.session())
         _ = try await client.thread(id: "rt_real_1", cursor: "TC9")
-        let q = try #require(MockURLProtocol.lastRequest?.url?.query)
-        #expect(q.contains("cursor=TC9"))
+        let query = try #require(MockURLProtocol.lastRequest?.url?.query)
+        #expect(query.contains("cursor=TC9"))
     }
 
     @Test func capturesMIDFromResponseHeader() async throws {
