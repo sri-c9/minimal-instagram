@@ -7,6 +7,13 @@ related: "[[High-Level Product Design (V2)]]"
 
 # Minimal Instagram — Technical Design (V1)
 
+> **Last session (2026-05-23):** Built + merged the IGCore firewall core
+> (domain models, lenient DTOs, pure `DomainMapper`) to `develop`; 11 tests green,
+> confirmed against a sanitized real `direct_v2` capture. Found media_share nests
+> under `direct_media_share.media` (fixed), and that the web UI now uses GraphQL
+> while REST `/api/v1/direct_v2/` still works (see §3, §9). Next: `IGWebClient`
+> (transport) test-first, then `Repository`/`SessionStore`.
+
 > Companion to [[High-Level Product Design (V2)]]. That doc defines *what/why*
 > (a relationship-first communication layer over Instagram, with an "attention
 > firewall"). This doc defines *how* V1 is built.
@@ -76,6 +83,14 @@ Findings that shaped the design:
   Apple Developer account ($99/yr) for 1-year provisioning / TestFlight-to-self.
 - **Breakage.** IG changes its web API often. Containment: all churn lives in
   `IGWebClient` + `DomainMapper` (Section 5); nothing above `Repository` notices.
+- **GraphQL migration (latent, confirmed 2026-05-23).** The instagram.com *web UI*
+  has migrated DMs to `/api/graphql` (persisted-query `doc_id`s; reels arrive as
+  nested "XMA" attachments). The legacy REST `/api/v1/direct_v2/` endpoints this
+  design uses **still return 200** when called directly — our client is a separate
+  consumer, not the web UI — but they are the surface most likely to be retired.
+  If/when REST breaks, the swap is contained to `IGWebClient` (new transport) +
+  the `Raw*DTO` layer (new shapes); domain models, mapper logic, and UI are
+  unaffected. YAGNI: not building GraphQL until REST actually breaks.
 
 ---
 
@@ -191,8 +206,14 @@ decoding are test-first; WebView/AVPlayer edges are behind protocols + smoke onl
 
 ## 9. Open questions (for implementation, not blocking)
 
-- Confirm shared-reel item `type` (`clip` vs `media_share`) vs. plain video
-  *messages* — distinguish during mapping (doesn't change architecture).
+- ~~Confirm shared-reel item `type` (`clip` vs `media_share`)~~ **Resolved
+  2026-05-23 (real capture):** shared reels arrive as *both* `clip` and
+  `media_share`. The mapper allow-lists both, video-gated (a `SharedReel` is
+  emitted only when a `video_versions[].url` exists). Real nesting:
+  `clip.clip.video_versions` and `direct_media_share.media.video_versions`
+  (note: the media_share payload key is `direct_media_share`, **not**
+  `media_share`). Real junk seen and dropped: `raven_media`, `action_log`,
+  photo-only shares.
 - Exact send-text endpoint + required CSRF on POST (spike was read-only).
 - Cache store choice: simple on-disk JSON vs. SwiftData.
 - Pagination depth / "Recent" cutoff for the inbox.
