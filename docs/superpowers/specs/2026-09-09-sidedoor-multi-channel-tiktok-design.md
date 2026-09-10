@@ -1,7 +1,7 @@
 ---
 title: Sidedoor — Multi-Channel Firewall and TikTok Channel — Design Spec
 date: 2026-09-09
-status: draft — awaiting review
+status: approved 2026-09-10
 related:
   - docs/superpowers/specs/2026-06-30-webview-firewall-design.md
   - README.md
