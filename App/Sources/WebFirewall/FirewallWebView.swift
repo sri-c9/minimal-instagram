@@ -27,6 +27,11 @@ struct FirewallWebView: UIViewRepresentable {
         configuration.userContentController = userContentController
 
         let webView = WKWebView(frame: .zero, configuration: configuration)
+        #if DEBUG
+        // Safari Web Inspector attaches only to an inspectable WebView. Debug-only:
+        // a shipped build must not expose the user's logged-in DM surface.
+        webView.isInspectable = true
+        #endif
         webView.navigationDelegate = context.coordinator
         webView.allowsBackForwardNavigationGestures = false
         webView.scrollView.contentInsetAdjustmentBehavior = .never
