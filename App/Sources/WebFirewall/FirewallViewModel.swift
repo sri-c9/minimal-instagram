@@ -13,6 +13,11 @@ final class FirewallViewModel: ObservableObject {
     private var routeFirewall = RouteFirewall()
     private var pendingLoadURL: URL?
 
+    /// True while the injected script reports Instagram's reels feed mounted inline
+    /// in a `/direct/` thread. Tracked apart from `screen` so that clearing it can
+    /// never take down a media mode that a real `/reel/` navigation put up.
+    private var isInlineMediaSurfaceActive = false
+
     var homeURL: URL { RouteFirewall.inboxURL }
 
     var showsBackToDMs: Bool { screen.showsBackToDMs }
@@ -24,6 +29,11 @@ final class FirewallViewModel: ObservableObject {
     }
 
     func observeCommittedURL(_ url: URL) {
+        // A committed navigation tears down whatever the script was watching, and
+        // resetting here is also what lets a re-report recover if this raced ahead
+        // of the script's first message on a fresh load.
+        isInlineMediaSurfaceActive = false
+
         if RouteFirewall.isDirectURL(url) {
             let routeURL = RouteFirewall.routeURL(for: url)
             currentDirectURL = routeURL
@@ -34,6 +44,29 @@ final class FirewallViewModel: ObservableObject {
 
         currentDirectURL = nil
         if RouteFirewall.isAllowedAuthURL(url) {
+            screen = .web
+        }
+    }
+
+    /// Instagram mounts its reels feed inline in `/direct/t/<thread>/` without
+    /// navigating, so `RouteFirewall` never sees it and the shell would otherwise
+    /// keep claiming to show DMs while a full-screen reel plays.
+    func observeInlineMediaSurface(isPresent: Bool) {
+        guard isInlineMediaSurfaceActive != isPresent else { return }
+
+        if isPresent {
+            // Only a DM thread can host this surface; anywhere else the route
+            // firewall already owns the decision.
+            guard let returnURL = currentDirectURL else { return }
+            isInlineMediaSurfaceActive = true
+            screen = .media(returnURL: returnURL)
+            return
+        }
+
+        isInlineMediaSurfaceActive = false
+        // `currentDirectURL` is nil once a real `/reel/` navigation takes over, which
+        // is the case where this must keep its hands off `screen`.
+        if case .media = screen, currentDirectURL != nil {
             screen = .web
         }
     }
@@ -69,6 +102,7 @@ final class FirewallViewModel: ObservableObject {
                 self.currentDirectURL = nil
                 self.routeFirewall = RouteFirewall()
                 self.pendingLoadURL = nil
+                self.isInlineMediaSurfaceActive = false
                 self.screen = .web
                 self.reloadToken = UUID()
             }
@@ -78,6 +112,7 @@ final class FirewallViewModel: ObservableObject {
     private func load(_ url: URL) {
         pendingLoadURL = url
         isLoading = true
+        isInlineMediaSurfaceActive = false
         screen = .web
     }
 

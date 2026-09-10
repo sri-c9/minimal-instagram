@@ -24,6 +24,8 @@ struct FirewallWebView: UIViewRepresentable {
                          forMainFrameOnly: true)
         )
         userContentController.add(context.coordinator, name: MinimalStyleInjector.routeMessageName)
+        userContentController.add(context.coordinator,
+                                  name: MinimalStyleInjector.mediaSurfaceMessageName)
         configuration.userContentController = userContentController
 
         let webView = WKWebView(frame: .zero, configuration: configuration)
@@ -60,6 +62,9 @@ struct FirewallWebView: UIViewRepresentable {
     static func dismantleUIView(_ webView: WKWebView, coordinator: Coordinator) {
         webView.configuration.userContentController.removeScriptMessageHandler(
             forName: MinimalStyleInjector.routeMessageName
+        )
+        webView.configuration.userContentController.removeScriptMessageHandler(
+            forName: MinimalStyleInjector.mediaSurfaceMessageName
         )
         webView.navigationDelegate = nil
     }
@@ -105,8 +110,18 @@ struct FirewallWebView: UIViewRepresentable {
 
         func userContentController(_ userContentController: WKUserContentController,
                                    didReceive message: WKScriptMessage) {
-            guard message.name == MinimalStyleInjector.routeMessageName,
-                  let href = message.body as? String,
+            switch message.name {
+            case MinimalStyleInjector.routeMessageName:
+                handleRouteChanged(message.body)
+            case MinimalStyleInjector.mediaSurfaceMessageName:
+                handleMediaSurfaceChanged(message.body)
+            default:
+                return
+            }
+        }
+
+        private func handleRouteChanged(_ body: Any) {
+            guard let href = body as? String,
                   let url = URL(string: href) else { return }
 
             let decision = model.decision(for: url)
@@ -116,6 +131,12 @@ struct FirewallWebView: UIViewRepresentable {
             case .block:
                 webView?.stopLoading()
             }
+        }
+
+        private func handleMediaSurfaceChanged(_ body: Any) {
+            // A JS boolean arrives bridged as NSNumber, not as a Swift Bool.
+            guard let isPresent = (body as? NSNumber)?.boolValue else { return }
+            model.observeInlineMediaSurface(isPresent: isPresent)
         }
 
         func webView(_ webView: WKWebView,

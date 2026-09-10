@@ -2,6 +2,7 @@ import Foundation
 
 enum MinimalStyleInjector {
     static let routeMessageName = "routeChanged"
+    static let mediaSurfaceMessageName = "mediaSurfaceChanged"
 
     static let source = #"""
 (function() {
@@ -79,6 +80,36 @@ enum MinimalStyleInjector {
         }
     }
 
+    // The inline feed also mounts and leaves without a route change, so the native
+    // shell has no other way to know it is showing media rather than a DM thread.
+    // Reporting presence lets it raise the media banner and the Back to DMs escape
+    // hatch that the URL-based path would otherwise have provided.
+    //
+    // Presence is re-derived from the DOM on every pass rather than latched: React
+    // may unmount the container, or leave it mounted and hide it, and only one of
+    // those trips a childList observer.
+    let lastReportedMediaSurface = null;
+
+    function reportMediaSurface() {
+        const locked = document.querySelector('[' + FEED_LOCK_ATTRIBUTE + ']');
+        let present = false;
+        if (locked) {
+            const rect = locked.getBoundingClientRect();
+            present = rect.width > 0 && rect.height > 0;
+        }
+
+        if (present === lastReportedMediaSurface) {
+            return;
+        }
+        lastReportedMediaSurface = present;
+
+        try {
+            window.webkit.messageHandlers.mediaSurfaceChanged.postMessage(present);
+        } catch (error) {
+            return;
+        }
+    }
+
     let feedLockScheduled = false;
 
     function scheduleFeedLock() {
@@ -89,6 +120,7 @@ enum MinimalStyleInjector {
         window.requestAnimationFrame(function() {
             feedLockScheduled = false;
             lockReelFeedScrollers();
+            reportMediaSurface();
         });
     }
 
@@ -123,6 +155,11 @@ enum MinimalStyleInjector {
             subtree: true
         });
     }
+
+    // Hiding the container without unmounting it changes no child list, so the
+    // slow timer is what notices the feed going away. The requestAnimationFrame
+    // debounce caps the whole thing at one pass per frame either way.
+    window.setInterval(scheduleFeedLock, 500);
 })();
 """#
 }
