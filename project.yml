@@ -32,6 +32,8 @@ targets:
         PRODUCT_BUNDLE_IDENTIFIER: com.srichandramouli.MinimalInstagram
         GENERATE_INFOPLIST_FILE: YES
         INFOPLIST_KEY_UILaunchStoryboardName: LaunchScreen
+        INFOPLIST_KEY_UISupportedInterfaceOrientations: "UIInterfaceOrientationPortrait UIInterfaceOrientationPortraitUpsideDown UIInterfaceOrientationLandscapeLeft UIInterfaceOrientationLandscapeRight"
+        INFOPLIST_KEY_UISupportedInterfaceOrientations~ipad: "UIInterfaceOrientationPortrait UIInterfaceOrientationPortraitUpsideDown UIInterfaceOrientationLandscapeLeft UIInterfaceOrientationLandscapeRight"
         ENABLE_USER_SCRIPT_SANDBOXING: NO   # SwiftLint scans the whole repo; the script sandbox would deny those reads
 
         ASSETCATALOG_COMPILER_APPICON_NAME: AppIcon
