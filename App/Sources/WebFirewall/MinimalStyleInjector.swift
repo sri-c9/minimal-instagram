@@ -89,13 +89,39 @@ enum MinimalStyleInjector {
     // may unmount the container, or leave it mounted and hide it, and only one of
     // those trips a childList observer.
     let lastReportedMediaSurface = null;
+    let presenceTimer = null;
+
+    // Hiding the container without unmounting it changes no child list, so the
+    // observer alone cannot see the feed go away. A slow timer covers that, and it
+    // runs only while a locked container is in the document — the rest of the time
+    // a new feed can only arrive as a child insertion, which the observer does see.
+    function startPresenceTimer() {
+        if (presenceTimer !== null) {
+            return;
+        }
+        presenceTimer = window.setInterval(scheduleFeedLock, 500);
+    }
+
+    function stopPresenceTimer() {
+        if (presenceTimer === null) {
+            return;
+        }
+        window.clearInterval(presenceTimer);
+        presenceTimer = null;
+    }
 
     function reportMediaSurface() {
         const locked = document.querySelector('[' + FEED_LOCK_ATTRIBUTE + ']');
         let present = false;
         if (locked) {
+            // Still in the document but collapsed means React hid it rather than
+            // unmounting it: not present, but keep watching, since it can come back
+            // without any child insertion to notice.
             const rect = locked.getBoundingClientRect();
             present = rect.width > 0 && rect.height > 0;
+            startPresenceTimer();
+        } else {
+            stopPresenceTimer();
         }
 
         if (present === lastReportedMediaSurface) {
@@ -155,11 +181,6 @@ enum MinimalStyleInjector {
             subtree: true
         });
     }
-
-    // Hiding the container without unmounting it changes no child list, so the
-    // slow timer is what notices the feed going away. The requestAnimationFrame
-    // debounce caps the whole thing at one pass per frame either way.
-    window.setInterval(scheduleFeedLock, 500);
 })();
 """#
 }

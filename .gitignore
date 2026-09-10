@@ -17,3 +17,6 @@ build/
 *.moved-aside
 *.hmap
 *.ipa
+
+## Local code-signing — your Apple team ID, never committed
+Signing.local.xcconfig

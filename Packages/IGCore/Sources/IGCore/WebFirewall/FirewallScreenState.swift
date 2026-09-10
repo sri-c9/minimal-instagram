@@ -1,12 +1,13 @@
 import Foundation
 
-enum FirewallScreenState: Equatable {
+/// What the native shell is currently showing around the WebView.
+public enum FirewallScreenState: Equatable, Sendable {
     case web
     case media(returnURL: URL)
     case blocked(returnURL: URL)
     case error(String)
 
-    var returnURL: URL? {
+    public var returnURL: URL? {
         switch self {
         case .web, .error:
             nil
@@ -15,7 +16,7 @@ enum FirewallScreenState: Equatable {
         }
     }
 
-    var showsBackToDMs: Bool {
+    public var showsBackToDMs: Bool {
         switch self {
         case .media, .blocked:
             true
@@ -24,7 +25,7 @@ enum FirewallScreenState: Equatable {
         }
     }
 
-    var statusTitle: String {
+    public var statusTitle: String {
         switch self {
         case .web:
             "DMs"

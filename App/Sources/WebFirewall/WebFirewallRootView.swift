@@ -1,3 +1,4 @@
+import IGCore
 import SwiftUI
 
 struct WebFirewallRootView: View {

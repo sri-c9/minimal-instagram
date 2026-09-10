@@ -11,7 +11,15 @@ settings:
     SWIFT_VERSION: "6.0"            # Swift 6 language mode → strict data-race safety
     MARKETING_VERSION: "0.0.1"
     CURRENT_PROJECT_VERSION: "1"
-    CODE_SIGN_STYLE: Automatic       # pick your personal team in Xcode → Signing on first device run
+    CODE_SIGN_STYLE: Automatic       # DEVELOPMENT_TEAM comes from Signing.xcconfig
+
+# Local, gitignored signing settings. The .xcodeproj is generated and not
+# committed, so a team picked in Xcode's Signing editor is lost on the next
+# `xcodegen generate`; this is what survives regeneration. Copy
+# Signing.xcconfig.example to Signing.xcconfig on a fresh clone.
+configFiles:
+  Debug: Signing.xcconfig
+  Release: Signing.xcconfig
 
 packages:
   IGCore:
