@@ -27,7 +27,7 @@ The product is **Sidedoor**: you come in through the side door straight to your 
 
 | Thing | Was | Becomes |
 |---|---|---|
-| Display name | Minimal Instagram | Sidedoor |
+| Home-screen name | MinimalInstagram (no display name is set today) | Sidedoor, via `INFOPLIST_KEY_CFBundleDisplayName` |
 | App target and scheme | MinimalInstagram | Sidedoor |
 | Bundle ID | com.srichandramouli.MinimalInstagram | com.srichandramouli.Sidedoor |
 | Xcode project (generated) | MinimalInstagram.xcodeproj | Sidedoor.xcodeproj |
@@ -42,11 +42,18 @@ The product is **Sidedoor**: you come in through the side door straight to your 
 | JS install guard | `window.__minimalInstagramFirewallInstalled` | `window.__sidedoorInstalled` |
 | Injected `<style>` marker | `data-minimal-instagram` | `data-sidedoor` |
 | Instagram feed-lock attribute | `data-minimal-instagram-feed-locked` | `data-sidedoor-feed-locked` |
-| README title and layout section | Minimal Instagram / IGCore | Sidedoor / SidedoorCore |
+| README title, layout, build command, manual checks | Minimal Instagram / IGCore / MinimalInstagram.xcodeproj | Sidedoor / SidedoorCore / Sidedoor.xcodeproj |
+| Module version enum and its smoke test | `IGCore.version` | `SidedoorCore.version` |
+| `#Preview` blocks in the root and screen views | construct the old root | construct a store and model per §6 |
+| Stale generated project on disk | MinimalInstagram.xcodeproj (gitignored) | deleted after `xcodegen generate` |
+
+Left as is, on purpose: the Keychain service string in the paused transport code (`com.sri.minimalinstagram.session`), which nothing in the app flow uses.
+
+Repo hygiene folded into the rename: `Signing.xcconfig` is committed with a team ID although `project.yml` describes it as gitignored, and the `Signing.xcconfig.example` it points to does not exist. Increment 1 adds the file to `.gitignore`, untracks it, and adds the example, so "installs fresh" works on a clean clone.
 
 Out of scope for the rename: the historical documents under `docs/` other than this one and the README (they record the Instagram-era design and stay as written), the repository folder name, and the GitHub remote.
 
-Effect on device: the new bundle ID is a fresh install. The old app can be deleted. Nothing migrates from the old WebKit data store, and the user logs into Instagram again once.
+Effect on device: the new bundle ID is a fresh install, and it happens once, at increment 2b (§14), when the per-channel data stores land. The old app can be deleted. Nothing migrates from the old WebKit data store, and the user logs into Instagram again once.
 
 ## 3. Hard boundaries, for every channel
 
@@ -58,7 +65,7 @@ The app will not, for any channel:
 - Extract, copy, decode, store, or export cookies or session tokens.
 - Spoof app headers, device identity, or hand-set a user-agent string.
 - Use a backend, proxy, or bridge.
-- Poll in the background.
+- Poll the network in the background. The in-page presence timer (§5.5) reads element geometry only, runs only while a locked surface exists, and makes no requests.
 - Automate clicks, scrolling, sending, liking, watching, or navigation.
 - Scrape, parse, store, upload, or analyze DM content.
 - Store usernames, thread IDs, message text, or media URLs.
@@ -66,7 +73,7 @@ The app will not, for any channel:
 
 The app does, for every channel:
 
-- Load the channel's official web UI in an app-owned `WKWebView`, in a WebKit data store private to that channel.
+- Load the channel's official web UI in an app-owned `WKWebView`, in a WebKit data store private to that channel, with content mode pinned to `.mobile` on every device (§6.10).
 - Let the channel handle login, 2FA, checkpoints, captchas, DMs, sending, and media.
 - Enforce a local route firewall that blocks by default.
 - Neutralize inline feed surfaces with a small, channel-specific DOM hook when a channel needs one.
@@ -93,7 +100,7 @@ A channel with no inline-feed quirk supplies no hook, and the shell installs no 
 
 Why one protocol and not one package per channel: what differs per channel is one classifier, one CSS block, and at most one DOM hook of roughly a hundred lines. There are no per-channel dependencies, fixtures, or shipping units. Separate packages would buy only a build-system guarantee that channels do not import each other, which review catches for free.
 
-Why not data-only channels (a plist of hosts and path prefixes): TikTok media is `/@user/video/<id>` while `/@user` is a profile, so prefix matching is not enough, and DOM hooks are code. It would grow into a DSL.
+Why not data-only channels (a plist of hosts and path prefixes): DOM hooks are code, and if, as inferred in §7.2, TikTok's media pages live under the same prefix as profiles, prefix matching is not enough either. It would grow into a DSL.
 
 ## 5. Core package: `SidedoorCore`
 
@@ -121,15 +128,18 @@ Packages/SidedoorCore/Sources/SidedoorCore/
 ### 5.2 Types
 
 ```swift
-public enum ChannelID: String, CaseIterable, Codable, Sendable {
+public enum ChannelID: String, CaseIterable, Sendable {
     case instagram
     // case tiktok — added in increment 4, together with TikTokChannel
 
     /// The registry. Every case resolves to exactly one stateless conformance.
     public var channel: any Channel { get }
+
+    /// Fixed, committed UUID for this channel's WKWebsiteDataStore. Foundation only.
+    public var webStoreIdentifier: UUID { get }
 }
 
-public enum RouteKind: Equatable, Sendable {
+public enum RouteKind: Hashable, CaseIterable, Sendable {
     case auth    // login, one-tap, challenge, captcha, verification
     case dm      // inbox and threads
     case media   // a single post/reel/story/video page
@@ -144,7 +154,6 @@ public struct ChannelWebScript: Equatable, Sendable {
 }
 
 public protocol Channel: Sendable {
-    var id: ChannelID { get }
     var displayName: String { get }
     /// Lowercase hostnames, matched exactly. Scheme, port, and credentials are checked by RouteFirewall.
     var hosts: Set<String> { get }
@@ -160,6 +169,8 @@ Rules:
 
 - Exactly one kind per path. Conformances use exact-or-prefix matching (`path == "/x" || path.hasPrefix("/x/")`). A channel that needs a pattern (TikTok media) keeps the pattern inside its own file.
 - Channels are stateless value types. The state machines hold a `ChannelID`, not the existential, so `RouteFirewall` and `FirewallSurface` keep their synthesized `Equatable` and the tests keep comparing whole values.
+- The protocol carries no `id`; `ChannelID` owns the mapping. That keeps the protocol free of a redundant field and lets tests build throwaway conformances (a hookless channel, a channel with hostile CSS) without lying about identity.
+- Conformances hold `hosts` and `homeURL` as `static let` constants and build `homeURL` with the existing `preconditionFailure` pattern, never a force unwrap (the lint rule is on).
 - `classify` never sees the host. If a channel ever needs host-dependent classification, that is a new requirement on the protocol, not a special case in the firewall.
 
 ### 5.3 `RouteFirewall`
@@ -191,7 +202,7 @@ The static `inboxURL`, `isAllowedAuthURL`, `isDirectURL`, `isMediaURL`, and `isI
 
 ### 5.4 `FirewallSurface`
 
-`init(channel: ChannelID)`. Every `RouteFirewall.isDirectURL(x)` becomes `routeFirewall.kind(of: x) == .dm` and every `isAllowedAuthURL(x)` becomes `== .auth`. `reset()` keeps the channel. No transition changes; the existing tests pass with only their construction updated.
+`init(channel: ChannelID)`. Every `RouteFirewall.isDirectURL(x)` becomes `routeFirewall.kind(of: x) == .dm` and every `isAllowedAuthURL(x)` becomes `== .auth`. `reset()` keeps the channel. The guard inside the `.allow` case of `decide` is removed rather than translated: `RouteFirewall` returns `.allow` only for auth and DM, so the guard is always true today. No transition changes. The existing tests change in two places only: construction, and the `RouteFirewall.inboxURL` references, which move to the fixture (§13.1).
 
 ### 5.5 `FirewallScript`
 
@@ -205,24 +216,25 @@ public enum FirewallScript {
 
 The composed user script is one IIFE in four parts:
 
-1. **Prelude.** Install guard on `window.__sidedoorInstalled`. Creates a `<style data-sidedoor="true">` whose `textContent` is the channel CSS, embedded as a JSON string literal (so backticks, backslashes, and `${` in CSS cannot break the script). Appends it to `documentElement`. Adds the shared `body { overscroll-behavior: contain !important; }` rule.
+1. **Prelude.** Install guard on `window.__sidedoorInstalled`. Creates a `<style data-sidedoor="true">` whose `textContent` is the channel CSS, embedded as a JS string literal produced by an internal `FirewallScript.jsStringLiteral(_:)` (JSON encoding of the string, so backticks, backslashes, and `${` in CSS cannot break the script). `</script>` and U+2028/2029 are non-issues here: this is a `WKUserScript`, not inline HTML, and modern JS string literals accept those code points. Appends it to `documentElement`. Adds the shared `body { overscroll-behavior: contain !important; }` rule.
 2. **Hook.** The channel's `inlineMediaHook` verbatim, or, when it is `nil`, the defaults:
    ```js
    function lockInlineMedia() {}
    function inlineMediaState() { return 'absent'; }
    ```
-3. **Bridge.** `postRoute()` posts `location.href` to `routeChanged`. `scheduleSurfaceCheck()` coalesces into one `requestAnimationFrame`, then calls `lockInlineMedia()`, then `inlineMediaState()`, then acts on the result:
+3. **Bridge.** `postRoute()` first calls `scheduleSurfaceCheck()` (as `notifyRouteChanged` does today), then posts `location.href` to `routeChanged`. `scheduleSurfaceCheck()` coalesces into one `requestAnimationFrame`, then calls `lockInlineMedia()`, then `inlineMediaState()`, then acts on the result:
    - `'absent'`: stop the presence timer, report `false`.
-   - `'present'`: start the 500 ms presence timer if not running, report `true`.
-   - `'hidden'`: keep the timer running, report `false`.
+   - `'present'`: report `true`.
+   - `'hidden'`: report `false`.
+   - The 500 ms presence timer runs whenever the state is not `'absent'`, so a surface locked while collapsed is watched from its first pass, exactly as today where the timer runs whenever a locked element exists.
 
-   Reports are deduplicated; only a change posts to `mediaSurfaceChanged`. Each hook call is wrapped in `try/catch`; a throw is treated as `'absent'` and that pass posts nothing. The timer exists because a surface that is hidden without being unmounted changes no child list, so the observer alone cannot see it leave or return.
-4. **Epilogue.** Wraps `history.pushState` and `history.replaceState`, listens to `popstate`, posts the initial route on a zero timeout, and, **only when the channel supplied a hook**, observes `document.body` for `childList` and `subtree` mutations with `scheduleSurfaceCheck`.
+   Reports are deduplicated; only a change posts to `mediaSurfaceChanged`. Each pass is wrapped in `try/catch`; a throw skips the rest of that pass with no state change, no timer change, and no deduplication update, so the next mutation or timer tick simply retries (today's behavior, where an uncaught rAF exception leaves the interval running). The timer exists because a surface that is hidden without being unmounted changes no child list, so the observer alone cannot see it leave or return.
+4. **Epilogue.** Wraps `history.pushState` and `history.replaceState`, listens to `popstate`, posts the initial route on a zero timeout (which is also the first surface pass), and, **only when the channel supplied a hook**, observes `document.body` for `childList` and `subtree` mutations with `scheduleSurfaceCheck`. The observer-install snippet is a named constant in `FirewallScript` so the tests assert its presence structurally rather than by hand-typed substring.
 
 Hook contract, which each channel's `inlineMediaHook` must satisfy:
 
 - `lockInlineMedia()`: idempotent. Finds any inline feed scroller now in the DOM and removes its ability to scroll, without touching scroll position. Marks what it locked so it does not do the work twice.
-- `inlineMediaState()`: returns `'absent'` when nothing locked is in the document, `'present'` when a locked surface is in the document and has a non-zero bounding rect, `'hidden'` when it is in the document but collapsed.
+- `inlineMediaState()`: returns `'absent'` when nothing locked is in the document, `'present'` when **any** locked surface in the document has a non-zero bounding rect, `'hidden'` when locked surfaces exist and all are collapsed. "Any", not "the first": today's `querySelector` reports the first match, and a stale collapsed container ahead of a live one would hide a feed the user can see.
 - Neither function reads message text, usernames, or media URLs. They inspect element structure and computed style only.
 
 ### 5.6 `InstagramChannel`
@@ -239,7 +251,7 @@ Behavior-identical to today.
 - `hosts`: `instagram.com`, `www.instagram.com`.
 - `homeURL`: `https://www.instagram.com/direct/inbox/`.
 - `css`: the current selector list, minus the `body { overscroll-behavior }` rule, which moves to the shared prelude.
-- `inlineMediaHook`: the current `lockReelFeedScrollers` (walk up from every `<video>`; lock the first ancestor whose computed `scroll-snap-type` starts with `y` and whose `overflow-y` is `scroll` or `auto`; set `overflow-y: hidden` and `scroll-snap-type: none` with `!important`; mark with `data-sidedoor-feed-locked`) as `lockInlineMedia()`, and the current presence check (locked element in document → bounding rect non-zero means `'present'`, zero means `'hidden'`; none → `'absent'`) as `inlineMediaState()`.
+- `inlineMediaHook`: the current `lockReelFeedScrollers` (walk up from every `<video>`; lock the first ancestor whose computed `scroll-snap-type` starts with `y` and whose `overflow-y` is `scroll` or `auto`; set `overflow-y: hidden` and `scroll-snap-type: none` with `!important`; mark with `data-sidedoor-feed-locked`) as `lockInlineMedia()`, and the presence check over `querySelectorAll` of the marker (any non-zero rect → `'present'`; some marked, all zero → `'hidden'`; none → `'absent'`) as `inlineMediaState()`.
 
 ## 6. App target: `Sidedoor`
 
@@ -252,7 +264,6 @@ App/Sources/
   WebFirewall/
     ChannelRootView.swift              new: active channel + store
     ChannelStore.swift                 new: one FirewallViewModel per channel
-    ChannelWebStore.swift              new: ChannelID → WKWebsiteDataStore identifier
     ChannelScreen.swift                was WebFirewallRootView.swift
     FirewallWebView.swift
     FirewallViewModel.swift
@@ -263,15 +274,15 @@ App/Sources/
 ### 6.2 `ChannelRootView` and `ChannelStore`
 
 - `@AppStorage("activeChannel")` holds the raw `ChannelID` string. An unknown or missing value resolves to `.instagram`.
-- `ChannelStore` is a `@MainActor ObservableObject` with `func model(for: ChannelID) -> FirewallViewModel`, creating lazily and keeping every created model for the life of the process.
-- Body: `ChannelScreen(model: store.model(for: active), activeChannel: $active).id(active)`. The `.id` makes a switch rebuild the whole screen, including the WebView.
-- `.onChange(of: active)` calls `store.model(for: active).prepareResume()`. That runs outside the body evaluation, so the model's published state is never mutated during a view update.
+- `ChannelStore` is a `@MainActor ObservableObject` with `func model(for: ChannelID) -> FirewallViewModel`, creating lazily and keeping every created model for the life of the process. Its cache is a plain dictionary, not `@Published`: `model(for:)` is called from `body`, and publishing from there is a SwiftUI runtime warning.
+- Body: `ChannelScreen(model: store.model(for: active), activeChannel: $active).id(active)`. The `.id` makes a switch rebuild the whole screen, including the WebView. `ChannelScreen` holds the injected model as `@ObservedObject`, not `@StateObject` as the current root does.
+- `.onChange(of: active)` calls `store.model(for: active).prepareResume()`. That is expected to run after the body update rather than inside it; if it runs after the WebView's first frame, the cost is one frame of a stale overlay, which §6.4 tolerates. It never affects which URL loads.
 
 ### 6.3 `ChannelScreen`
 
 The current `WebFirewallRootView` layout, per channel: top bar, divider, web content, blocker overlay, settings sheet.
 
-The title becomes the **channel switcher** in increment 4 (a static display name until then): a `Menu` whose label is the display name with a `chevron.up.chevron.down` glyph and the existing status caption beneath, and whose content is one button per `ChannelID.allCases` with a checkmark on the active one. Selecting sets the binding. Accessibility label: "Switch channel, currently \(displayName)". Nothing else in the top bar moves.
+The title becomes the **channel switcher**: a `Picker` in `.menu` style bound to `activeChannel`, listing `ChannelID.allCases` by display name (the checkmark and accessibility come with the style), with the existing status caption beneath. It renders as static text while `ChannelID.allCases.count == 1`, so increment 2b ships it without a one-item menu and the probe branch can reach TikTok by adding the case. Accessibility label: "Switch channel, currently \(displayName)". Nothing else in the top bar moves. The switcher is unreachable while the blocker is up: the dim layer sits above the top bar in the `ZStack` and a blocked screen offers exactly one action.
 
 ### 6.4 `FirewallViewModel`
 
@@ -280,24 +291,27 @@ The title becomes the **channel switcher** in increment 4 (a static display name
 - `scriptSource` is `FirewallScript.compose(for: channel.channel)`, computed once.
 - `dataStore` is `WKWebsiteDataStore(forIdentifier: channel.webStoreIdentifier)`.
 - `var resumeURL: URL`, read-only: `surface.backToDMsURL()`. `makeUIView` loads it, so a channel resumes at its last DM route or its home. Reading it mutates nothing.
-- `func prepareResume()`: `surface.prepareLoad()`. Called by the root on a switch (§6.2) to clear a stale blocked or media screen before the first frame. The load itself also self-heals: a DM navigation puts the screen back to `.web` and a commit clears the inline flag, so a missed call costs at most a brief flash of the old overlay.
+- `func prepareResume()`: `surface.prepareLoad()`, and clears `pendingLoadURL` and `isLoading` left over from a load that was interrupted by the switch. Called by the root on a switch (§6.2) to clear a stale blocked or media screen before the first frame. The load itself also self-heals: a DM navigation puts the screen back to `.web` and a commit clears the inline flag, so a missed call costs at most a brief flash of the old overlay.
 - `reloadHome()` replaces `reloadInstagram()`.
 - `logout()` is the current implementation against `dataStore` instead of `.default()`.
 
 ### 6.5 `FirewallWebView`
 
 - `websiteDataStore`, the user script, and the two handler names come from the model and `FirewallScript`.
-- `makeUIView` loads `model.resumeURL`; the reload-token path still loads `model.homeURL`.
+- `makeUIView` loads `model.resumeURL`. The reload-token branch in `updateUIView` is deleted: the view is already keyed by `.id(model.reloadToken)`, so a token change always goes through `makeUIView` and that branch is dead today. After a logout the model's surface is reset, so `resumeURL` is the home URL and the login shows.
+- `configuration.defaultWebpagePreferences.preferredContentMode = .mobile` (§6.10).
 - Coordinator, delegate methods, and `dismantleUIView` are unchanged.
 
 ### 6.6 Data stores
 
-`ChannelWebStore.swift` maps each `ChannelID` to a fixed `UUID` constant, generated once and committed. Every channel uses `WKWebsiteDataStore(forIdentifier:)`; nothing uses `.default()`. The identifiers are not derived from anything user-specific.
+`ChannelID.webStoreIdentifier` (in the core package, Foundation only) maps each channel to a fixed `UUID` constant, generated once and committed. Every channel uses `WKWebsiteDataStore(forIdentifier:)`; nothing uses `.default()`. The identifiers are not derived from anything user-specific. WebKit traps on the all-zero UUID, and §13.1 asserts the constants are distinct and non-zero.
+
+One-time cleanup: on first launch after increment 2b, the app calls `removeData` for all types on `WKWebsiteDataStore.default()` and records that it did in `UserDefaults`. This covers the case where increment 1 was installed on a device and logged in, leaving a session in the default store that per-channel logout could never clear. It is harmless on a fresh install.
 
 ### 6.7 Switching semantics
 
 - One live `WKWebView` at a time. Switching dismantles the current one (handlers removed, delegate cleared) and builds the other channel's, which loads that channel's resume URL.
-- The outgoing model keeps its `FirewallSurface`. Its screen state is not displayed while inactive. On return, `prepareResume()` resets the screen to `.web` and the load goes to `resumeURL`, so a channel left on a blocked or media screen comes back on its DM route.
+- The outgoing model keeps its `FirewallSurface`. Its screen state is not displayed while inactive. On return, `prepareResume()` resets the screen to `.web` and the load goes to `resumeURL`, so a channel left on a media or error screen comes back on its DM route. A channel cannot be left on a blocked screen by switching, because the switcher is unreachable while blocked (§6.3); the blocked-resume path exists only for completeness.
 - Switching mid-load drops the navigation with the WebView; the old coordinator receives no further callbacks.
 - The reload token stays per model.
 
@@ -322,6 +336,8 @@ The title becomes the **channel switcher** in increment 4 (a static display name
 
 Shared for every channel until measurement says otherwise: `allowsInlineMediaPlayback = false`, `allowsAirPlayForMediaPlayback = true`, `mediaTypesRequiringUserActionForPlayback = []`, back-forward gestures off, `contentInsetAdjustmentBehavior = .never`, `isInspectable = true` under `#if DEBUG` only. A per-channel media override is deferred (§15).
 
+New: `defaultWebpagePreferences.preferredContentMode = .mobile`. WebKit's `.recommended` default means mobile on iPhone and iPad mini but desktop on other iPads, and `project.yml` declares iPad orientations, so today an iPad already gets Instagram's desktop web, where the measured feed signature has not been checked. Pinning `.mobile` makes every device show the surface that was measured and makes D1 (§8.4) a real opt-in rather than something that already happens on some devices.
+
 ## 7. TikTok: what is known
 
 ### 7.1 Measured
@@ -331,6 +347,7 @@ Nothing. No TikTok probing has been done. Every statement in §7.2 is inference 
 ### 7.2 Inferred, unverified
 
 - DMs exist on TikTok's desktop web at `/messages`. Mobile web pushes to the native app and may not expose messaging at all.
+- Video pages live under the profile prefix, something like `/@user/video/<id>` beside `/@user` for the profile. If so, media needs a pattern, not a prefix.
 - The open thread may be client state rather than part of the URL, in which case Back to DMs can only return to the inbox.
 - On the video page, moving to the next video updates the URL, which the existing "second media navigation from media mode is blocked" rule would already stop. If it is client state only, that is the Instagram inline hole again and needs a hook.
 - The DM view may embed a shared video in a scroller with no route change.
@@ -341,22 +358,23 @@ Nothing. No TikTok probing has been done. Every statement in §7.2 is inference 
 
 ### 8.1 Setup
 
-- A scratch branch `probe/tiktok-dm-surface` off `develop`, after increment 2 has merged.
-- A throwaway `TikTokChannel`: hosts `tiktok.com`, `www.tiktok.com`, `m.tiktok.com`; home `https://www.tiktok.com/messages`; `classify` returns `.dm` for every path; empty CSS; no hook. It is permissive on purpose and never merges.
-- A DEBUG build on the connected iPhone with Safari Web Inspector attached from the Mac.
-- Before the app: mobile Safari on the phone at `https://www.tiktok.com/messages`, logged out and then logged in.
+- **A secondary TikTok account, not the user's main one.** The probe logs into a fresh WebKit store with a permissive classifier and expects to meet the anti-bot layer; D5's "stop and report" may come after a flag has landed. The repo's live-transport probes already follow this rule.
+- A scratch branch `probe/tiktok-dm-surface` off `develop`, after increment 2b has merged.
+- A throwaway `TikTokChannel` plus `ChannelID.tiktok`: hosts `tiktok.com`, `www.tiktok.com`, `m.tiktok.com`; home `https://www.tiktok.com/messages`; `classify` returns `.dm` for every path; empty CSS; no hook. It is permissive on purpose and never merges. With two cases the switcher renders (§6.3), which is how the probe build reaches TikTok.
+- A DEBUG build on the connected iPhone with Safari Web Inspector attached from the Mac. The recon doc records whether the TikTok native app is installed on that device, because that changes Universal Link and "open in app" behavior.
+- Before the app: mobile Safari on the phone at `https://www.tiktok.com/messages`, logged out and then logged in with the same secondary account. This is a coarse check of what the site serves to mobile WebKit at all; the app measurement is the one that counts.
 
 ### 8.2 What to record
 
 1. What mobile Safari shows at `/messages`: a DM UI, a login wall, an app interstitial, or a redirect, and to where.
 2. The same in the app's `WKWebView`.
-3. Routes, as paths and query: inbox, an open thread, login, signup, captcha, verification, logout, and any redirect applied on first load.
+3. Routes, as path shapes and query shapes (`?<param>=<opaque id>`, never values): inbox, an open thread, login, signup, captcha, verification, logout, and any redirect applied on first load. A thread identifier in a query value is exactly what §11 forbids recording.
 4. A shared video in a DM: tapping it navigates (to what path), mounts inline, or opens a modal. Whether moving to the next video changes the URL.
 5. Any full-bleed video container: computed `overflow-y` and `scroll-snap-type` on the ancestors of `<video>`, and whether items carry a permalink.
 6. Interstitials and overlays: "Open in app" prompts, their DOM shape for CSS, and whether they block interaction.
 7. Media playback under the shared configuration: does video play, with audio.
 8. Anti-bot: whether a captcha appears, when, and whether it recurs on relaunch.
-9. If mobile web shows no DM surface: repeat 1 through 8 with `WKWebpagePreferences.preferredContentMode = .desktop` applied to main-frame navigations on channel hosts.
+9. If mobile web shows no DM surface: repeat 1 through 8 with `defaultWebpagePreferences.preferredContentMode = .desktop`, and record the user-agent string the page observes (`navigator.userAgent`) under both modes.
 
 ### 8.3 Output
 
@@ -364,8 +382,8 @@ Nothing. No TikTok probing has been done. Every statement in §7.2 is inference 
 
 ### 8.4 Decisions gated on the findings
 
-- **D1, content mode.** If mobile web exposes DMs, content mode stays `.recommended` and nothing changes. If it does not, the user decides whether to adopt `.desktop`. If adopted: `Channel` gains `var contentMode: ChannelContentMode` (`.recommended`, `.desktop`), the coordinator applies it in `decidePolicyFor navigationAction, preferences:` for main-frame navigations on channel hosts, and the README posture states it. The working read is that this is the public equivalent of Safari's "Request Desktop Website", not the header spoofing §3 forbids, and carries low incremental risk; that read is inference, and the decision is the user's. If not adopted, TikTok is not shipped.
-- **D2, return route.** If the open thread is not in the URL, Back to DMs returns to the inbox and nothing changes. If it is in a query parameter: `Channel` gains `func returnRouteURL(for url: URL) -> URL` with a default of `RouteFirewall.routeURL(for:)`, `RouteFirewall` uses it to remember the last DM, and TikTok's override keeps only the identifying parameter. Covered by tests.
+- **D1, content mode.** If mobile web exposes DMs, content mode stays `.mobile` and nothing changes. If it does not, the user decides whether to adopt `.desktop` for TikTok. If adopted: `Channel` gains `var contentMode: ChannelContentMode` (`.mobile`, `.desktop`), `FirewallWebView` applies it through `configuration.defaultWebpagePreferences` (one WebView per channel, so the per-navigation delegate variant is unnecessary), and the README posture states it. What changes, stated plainly: WebKit presents the page a desktop Safari user-agent and desktop platform values, which the page can observe. The working read is that this is the public equivalent of Safari's "Request Desktop Website" and not the hand-set user-agent or app-header spoofing §3 forbids, and that it carries low incremental risk; that read is inference, and the decision is the user's. If not adopted, TikTok is not shipped.
+- **D2, return route.** If the open thread is not in the URL, Back to DMs returns to the inbox and nothing changes. If it is in a query parameter: `Channel` gains `func returnRouteURL(for url: URL) -> URL` with a default of `RouteFirewall.routeURL(for:)`, and every site that remembers a DM route switches to it: the `RouteFirewall` initializer, the media return URL in `decision`, `rememberIfDM`, and `currentDirectURL` in `FirewallSurface.observeCommittedURL`. TikTok's override keeps only the identifying parameter. The fixture's `expectedRememberedURL` (§13.1) makes the query-stripping test channel-aware.
 - **D3, feed containment.** URL per video: the existing rule blocks the second media navigation and no hook is needed. Client state only: a hook written from the measured style signature.
 - **D4, auth routes.** Whatever is measured, including captcha and verification routes.
 - **D5, viability.** Login loops, a recurring captcha, or an un-dismissable app push mean the channel cannot ship under §3. Stop and report. No user-agent strings and no automation to get past it.
@@ -385,7 +403,7 @@ README's posture section is restructured into a shared statement (§3 here, in R
 
 - **Instagram**: the current text, unchanged.
 - **TikTok**: the current Terms of Service URL and the section listing prohibited uses (at the time of writing, "Your Access to and Use of Our Services"; verify the section name when writing the README), the same gray-area statement about local CSS/JS, the same list of what is out of scope, the expectation of new-device notifications on first `WKWebView` login, and the D1 statement if desktop content mode is adopted.
-- **Precedent**: "Only DMs" ships in the App Store as a Safari extension that strips Instagram to DMs over the official web UI. That is evidence the web-UI-plus-local-CSS approach is an established category, not evidence about any platform's enforcement.
+- **Precedent**: "Only DMs" is listed in the App Store (found by App Store search on 2026-09-09; its listing describes a Safari extension that strips Instagram to DMs over the official web UI). That is evidence that stripping a network's web UI to DMs is a shipped product idea. It is not evidence about embedded-`WKWebView` posture: a Safari extension runs inside the user's own Safari session under Apple-reviewed extension APIs, while this app's sessions are labelled "Mobile Safari WebView" by Instagram.
 
 ## 11. Content-blind rule, additions
 
@@ -399,7 +417,7 @@ README's posture section is restructured into a shared statement (§3 here, in R
 - Load failure: the existing error view, with Reload going to the channel's home and Back to DMs to its last DM route.
 - Channel switch during a load: the outgoing WebView is dismantled; the incoming one starts fresh from its resume URL.
 - Logout failure: unchanged from today (the data-store call has no error path; the reload still runs).
-- A hook that throws: the prelude wraps each hook call in `try/catch`, treats a throw as `'absent'`, and never posts a media surface from a failed pass. The route firewall remains in force.
+- A hook that throws: the prelude skips the rest of that pass with no state, timer, or deduplication change, and the next mutation or timer tick retries (§5.5). The route firewall remains in force throughout.
 - A captcha or verification that is a modal on an allowed route: nothing to do. One that is a route: `.auth`.
 - An unknown `activeChannel` value: `.instagram`.
 
@@ -409,12 +427,12 @@ README's posture section is restructured into a shared statement (§3 here, in R
 
 - `InstagramChannelTests`: the §5.6 table, including boundaries (`/direct` vs `/directory`, `/p` vs `/profile`).
 - `TikTokChannelTests` (increment 4): the measured table, same shape.
-- `ChannelFixture` per channel: `inboxURL`, `threadURL`, `mediaURL`, `authURL`, `blockedURLs`, `externalURL`. Instagram's is today's URL set.
-- `RouteFirewallTests`, parametrized over `ChannelID.allCases` with the fixture: DM allowed and remembered; auth allowed; media only from a DM; second media navigation blocked; blocked routes; non-channel hosts, http, credentials, and non-443 ports blocked; query and fragment stripped from remembered routes; fallback to home.
+- `ChannelURLs` per channel (named to avoid the existing `Fixture` helper): `inboxURL`, `threadURL`, `threadURLWithQueryAndFragment`, `expectedRememberedURL`, `mediaURL`, `authURL`, `blockedURLs`, `externalURL`, `otherChannelURL`. Instagram's is today's URL set.
+- `RouteFirewallTests`, parametrized over `ChannelID.allCases` with `ChannelURLs`: DM allowed and remembered; auth allowed; media only from a DM; second media navigation blocked; blocked routes; non-channel hosts, http, credentials, and non-443 ports blocked; a remembered route equals `expectedRememberedURL` (query and fragment stripped unless D2 says otherwise for that channel); fallback to home; another channel's host is blocked, which pins the "nothing shared" boundary.
 - `FirewallSurfaceTests`, parametrized the same way: every current test, plus "reset keeps the channel".
-- `ChannelInvariantTests`: every channel's home URL is https, on a listed host, and classifies as `.dm`; hosts are non-empty and lowercase; a composed script contains the channel CSS as a JSON literal, contains the hook text when one is supplied, contains the no-op defaults when not, and contains `new MutationObserver` only when a hook is supplied.
-- `FirewallScriptTests`: CSS containing backticks, backslashes, and `${` composes without breaking the string literal (asserted by decoding the embedded JSON literal back to the input).
-- The paused transport tests are untouched apart from the module name.
+- `ChannelInvariantTests`, over `ChannelID.allCases`: home URL is https, on a listed host, and classifies as `.dm`; hosts are non-empty and lowercase; `webStoreIdentifier` values are distinct and none is the all-zero UUID; the composed script contains the channel CSS as the literal `jsStringLiteral` produces.
+- `FirewallScriptTests`, using throwaway `Channel` conformances (the protocol has no identity requirement, so a hookless test channel and a hostile-CSS test channel are legitimate): with a hook, the composed script contains the hook text and the observer-install constant; without one, it contains the no-op defaults and not the observer constant; `jsStringLiteral` round-trips CSS containing backticks, backslashes, `${`, and U+2028 (tested directly on the helper, not by locating it inside the composed script).
+- The paused transport tests are untouched apart from the module name and the version constant.
 
 ### 13.2 App, manual, per channel
 
@@ -426,15 +444,17 @@ Every increment: `swift test` green, `swiftlint` clean, simulator build succeeds
 
 ## 14. Increments
 
-1. **Rename.** Everything in §2. Done when the app builds, installs fresh, logs into Instagram, and all tests pass under the new module name.
-2. **Channel abstraction, Instagram only.** §5 and §6 without the switcher and without `ChannelID.tiktok`. Per-channel data store, `ChannelStore`, resume-on-load, and per-channel logout are included. Done when the manual checklist passes identically to before and every §13.1 suite except TikTok's exists and passes.
-3. **TikTok probe.** §8 on the scratch branch. Done when the recon document is merged and D1 through D5 are recorded in it.
+1. **Rename.** Everything in §2, including the signing-file hygiene. Done when the simulator build succeeds, `swiftlint` is clean, and all tests pass under the new module name. No device install is required here; installing and logging in at this point is allowed but pointless, because 2b replaces the data store and the one-time cleanup in §6.6 clears what this login leaves behind.
+2. **Channel abstraction, Instagram only**, in two halves so the pure work is gated by `swift test` before any device-visible change.
+   - **2a, core.** §5: `Channel`, `ChannelID` (with `webStoreIdentifier`), `RouteKind`, `ChannelWebScript`, `InstagramChannel`, the `RouteFirewall` and `FirewallSurface` generalization, `FirewallScript` in the package, and every §13.1 suite except TikTok's. The app target compiles against it with minimal edits. Done when `swift test` and lint are green.
+   - **2b, app.** §6: `ChannelStore`, `ChannelRootView`, `ChannelScreen` with the gated switcher, per-channel data store, one-time default-store cleanup, `.mobile` content mode, resume-on-switch, per-channel logout, strings. The fresh device install and the single Instagram re-login happen here. Done when the manual checklist passes identically to before.
+3. **TikTok probe.** §8 on the scratch branch, with a secondary account. Done when the recon document is merged and D1 through D5 are recorded in it.
 4. **TikTok channel.** §9. Done when both channels pass §13.2 and the README posture and checklist are updated.
 
 ## 15. Deferred
 
 - Per-channel `WKWebViewConfiguration` media settings, unless the probe requires them.
-- Desktop content mode, unless D1 adopts it.
+- Desktop content mode, unless D1 adopts it. Scoping the app to iPhone only is the alternative to pinning `.mobile` on iPad (§6.10) and is not taken here.
 - Keeping both WebViews alive across switches.
 - More channels.
 - Removing the paused private-API transport from the package.
