@@ -19,13 +19,13 @@ struct FirewallWebView: UIViewRepresentable {
 
         let userContentController = WKUserContentController()
         userContentController.addUserScript(
-            WKUserScript(source: MinimalStyleInjector.source,
+            WKUserScript(source: FirewallScript.compose(for: ChannelID.instagram.channel),
                          injectionTime: .atDocumentEnd,
                          forMainFrameOnly: true)
         )
-        userContentController.add(context.coordinator, name: MinimalStyleInjector.routeMessageName)
+        userContentController.add(context.coordinator, name: FirewallScript.routeMessageName)
         userContentController.add(context.coordinator,
-                                  name: MinimalStyleInjector.mediaSurfaceMessageName)
+                                  name: FirewallScript.mediaSurfaceMessageName)
         configuration.userContentController = userContentController
 
         let webView = WKWebView(frame: .zero, configuration: configuration)
@@ -61,10 +61,10 @@ struct FirewallWebView: UIViewRepresentable {
 
     static func dismantleUIView(_ webView: WKWebView, coordinator: Coordinator) {
         webView.configuration.userContentController.removeScriptMessageHandler(
-            forName: MinimalStyleInjector.routeMessageName
+            forName: FirewallScript.routeMessageName
         )
         webView.configuration.userContentController.removeScriptMessageHandler(
-            forName: MinimalStyleInjector.mediaSurfaceMessageName
+            forName: FirewallScript.mediaSurfaceMessageName
         )
         webView.navigationDelegate = nil
     }
@@ -111,9 +111,9 @@ struct FirewallWebView: UIViewRepresentable {
         func userContentController(_ userContentController: WKUserContentController,
                                    didReceive message: WKScriptMessage) {
             switch message.name {
-            case MinimalStyleInjector.routeMessageName:
+            case FirewallScript.routeMessageName:
                 handleRouteChanged(message.body)
-            case MinimalStyleInjector.mediaSurfaceMessageName:
+            case FirewallScript.mediaSurfaceMessageName:
                 handleMediaSurfaceChanged(message.body)
             default:
                 return

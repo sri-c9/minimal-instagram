@@ -45,4 +45,18 @@ import Testing
         #expect(!css.isEmpty)
         #expect(css.contains(":has("))
     }
+
+    @Test(arguments: ChannelID.allCases)
+    func composedScriptEmbedsTheChannelCSS(channelID: ChannelID) {
+        let channel = channelID.channel
+        let script = FirewallScript.compose(for: channel)
+
+        #expect(script.contains(FirewallScript.jsStringLiteral(channel.webScript.css)))
+        if let hook = channel.webScript.inlineMediaHook {
+            #expect(script.contains(hook))
+            #expect(script.contains(FirewallScript.observerInstall))
+        } else {
+            #expect(!script.contains(FirewallScript.observerInstall))
+        }
+    }
 }
