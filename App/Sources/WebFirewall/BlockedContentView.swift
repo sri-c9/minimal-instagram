@@ -1,26 +1,33 @@
 import SwiftUI
 
+/// Covers the page edge to edge: the route behind it is the thing being kept out
+/// of view, so none of it shows through.
 struct BlockedContentView: View {
     let displayName: String
     let backToDMs: () -> Void
 
     var body: some View {
-        VStack(spacing: 18) {
-            Image(systemName: "shield.lefthalf.filled")
-                .font(.system(size: 44, weight: .regular))
+        VStack(spacing: 20) {
+            Spacer()
+
+            Image(systemName: "door.left.hand.closed")
+                .font(.system(size: 52, weight: .light))
                 .foregroundStyle(.secondary)
                 .accessibilityHidden(true)
 
             VStack(spacing: 8) {
-                Text("This \(displayName) route is blocked")
-                    .font(.headline)
+                Text("Not part of your DMs")
+                    .font(.title3.weight(.semibold))
                     .multilineTextAlignment(.center)
 
-                Text("Sidedoor keeps this view focused on DMs and media opened from DMs.")
+                Text("Sidedoor opens \(displayName) messages and the media shared in them, and leaves the rest closed.")
                     .font(.subheadline)
                     .foregroundStyle(.secondary)
                     .multilineTextAlignment(.center)
             }
+            .frame(maxWidth: 320)
+
+            Spacer()
 
             Button(action: backToDMs) {
                 Text("Back to DMs")
@@ -29,12 +36,16 @@ struct BlockedContentView: View {
             }
             .buttonStyle(.borderedProminent)
             .controlSize(.large)
+            .frame(maxWidth: 360)
             .accessibilityHint("Returns to your last direct message route")
         }
         .padding(24)
-        .frame(maxWidth: 380)
-        .background(.regularMaterial, in: RoundedRectangle(cornerRadius: 28, style: .continuous))
-        .padding(24)
+        .frame(maxWidth: .infinity, maxHeight: .infinity)
+        .background(Color(.systemBackground))
         .accessibilityElement(children: .contain)
     }
+}
+
+#Preview {
+    BlockedContentView(displayName: "Instagram") {}
 }

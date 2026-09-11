@@ -16,6 +16,8 @@ final class FirewallViewModel: ObservableObject {
 
     @Published private(set) var surface: FirewallSurface
     @Published var isLoading = false
+    /// `WKWebView.estimatedProgress`, mirrored so the shell can draw it.
+    @Published var loadProgress: Double = 0
     @Published var reloadToken = UUID()
     @Published private(set) var isUnreadFilterOn: Bool
 
@@ -130,6 +132,7 @@ final class FirewallViewModel: ObservableObject {
     private func load(_ url: URL) {
         pendingLoadURL = url
         isLoading = true
+        loadProgress = 0
         surface.prepareLoad()
     }
 }

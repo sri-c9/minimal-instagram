@@ -6,63 +6,60 @@ struct ChannelScreen: View {
     let logout: (ChannelID) -> Void
     @State private var showingSettings = false
 
-    private var isBlocked: Bool {
-        if case .blocked = model.screen { true } else { false }
-    }
-
     var body: some View {
-        ZStack {
-            Color(.systemBackground)
-                .ignoresSafeArea()
-
-            VStack(spacing: 0) {
-                topBar
-                Divider()
-                webContent
-            }
-            .frame(maxWidth: .infinity, maxHeight: .infinity)
-
-            if case .blocked = model.screen {
-                Color.black.opacity(0.18)
-                    .ignoresSafeArea()
-
-                BlockedContentView(displayName: model.displayName) {
-                    model.backToDMs()
-                }
-            }
+        VStack(spacing: 0) {
+            topBar
+            Divider()
+            webContent
         }
+        .background(Color(.systemBackground).ignoresSafeArea())
         .sheet(isPresented: $showingSettings) {
             SettingsView(logout: logout)
         }
         // While blocked the screen offers exactly one action, Back to DMs; the
         // tab bar would be a second. No-op when there is no tab bar.
-        .toolbarVisibility(isBlocked ? .hidden : .automatic, for: .tabBar)
+        .toolbarVisibility(model.screen.coversWebContent ? .hidden : .automatic, for: .tabBar)
+        .sensoryFeedback(trigger: model.screen) { old, new in
+            switch FirewallScreenState.feedbackCue(from: old, to: new) {
+            case .blocked:
+                .warning
+            case .returnedToDMs:
+                .impact(weight: .light)
+            case nil:
+                nil
+            }
+        }
     }
 
+    /// One row. The page carries its own header, so the bar holds only what the
+    /// page cannot: where Back to DMs goes, the unread filter, and settings.
     private var topBar: some View {
-        HStack(spacing: 12) {
+        HStack(spacing: 10) {
             if model.showsBackToDMs {
                 Button {
                     model.backToDMs()
                 } label: {
                     Label("Back to DMs", systemImage: "chevron.left")
                         .labelStyle(.titleAndIcon)
+                        .font(.body.weight(.medium))
                 }
-                .buttonStyle(.bordered)
+                .buttonStyle(.plain)
+                .foregroundStyle(.tint)
                 .accessibilityHint("Returns to the last direct message route")
-            }
-
-            VStack(alignment: .leading, spacing: 2) {
+            } else {
                 Text(model.displayName)
                     .font(.headline)
-
-                Text(model.screen.statusTitle)
-                    .font(.caption.weight(.semibold))
-                    .foregroundStyle(.secondary)
-                    .accessibilityLabel("Current mode: \(model.screen.statusTitle)")
             }
 
-            Spacer()
+            if let caption = model.screen.caption {
+                Text(caption)
+                    .font(.footnote)
+                    .foregroundStyle(.secondary)
+                    .lineLimit(1)
+                    .truncationMode(.tail)
+            }
+
+            Spacer(minLength: 8)
 
             if model.offersUnreadFilter, case .web = model.screen {
                 Button {
@@ -72,6 +69,7 @@ struct ChannelScreen: View {
                         .labelStyle(.titleAndIcon)
                 }
                 .buttonStyle(.bordered)
+                .controlSize(.small)
                 .tint(model.isUnreadFilterOn ? Color.accentColor : Color.secondary)
                 .accessibilityLabel("Show unread only")
                 .accessibilityValue(model.isUnreadFilterOn ? "On" : "Off")
@@ -85,10 +83,12 @@ struct ChannelScreen: View {
                     .imageScale(.medium)
             }
             .buttonStyle(.bordered)
+            .controlSize(.small)
             .accessibilityLabel("Settings")
         }
         .padding(.horizontal, 16)
-        .padding(.vertical, 10)
+        .padding(.vertical, 6)
+        .frame(minHeight: 44)
         .background(.background)
     }
 
@@ -98,30 +98,28 @@ struct ChannelScreen: View {
                 .id(model.reloadToken)
                 .frame(maxWidth: .infinity, maxHeight: .infinity)
 
-            if model.isLoading {
-                ProgressView()
-                    .accessibilityLabel("Loading \(model.displayName)")
-                    .padding(18)
-                    .background(.regularMaterial, in: Capsule())
-            }
-
             if case .error(let message) = model.screen {
                 errorView(message)
+            }
+
+            if model.screen.coversWebContent {
+                BlockedContentView(displayName: model.displayName) {
+                    model.backToDMs()
+                }
+                .transition(.opacity)
             }
         }
         .frame(maxWidth: .infinity, maxHeight: .infinity)
         .clipped()
         .overlay(alignment: .top) {
-            if case .media = model.screen {
-                MediaModeBanner {
-                    model.backToDMs()
-                }
-                .padding(.horizontal, 12)
-                .padding(.top, 12)
-                .transition(.move(edge: .top).combined(with: .opacity))
+            if model.isLoading {
+                LoadProgressBar(progress: model.loadProgress)
+                    .accessibilityLabel("Loading \(model.displayName)")
+                    .transition(.opacity)
             }
         }
         .animation(.easeInOut(duration: 0.2), value: model.screen)
+        .animation(.easeInOut(duration: 0.2), value: model.isLoading)
     }
 
     private func errorView(_ message: String) -> some View {
@@ -165,33 +163,20 @@ struct ChannelScreen: View {
     }
 }
 
-private struct MediaModeBanner: View {
-    let backToDMs: () -> Void
+/// Two points of tint along the top edge of the page. Never empty while shown:
+/// the floor keeps a fresh navigation visible before WebKit reports progress.
+private struct LoadProgressBar: View {
+    let progress: Double
 
     var body: some View {
-        HStack(spacing: 12) {
-            Image(systemName: "photo.on.rectangle.angled")
-                .foregroundStyle(.secondary)
-                .accessibilityHidden(true)
-
-            Text("Viewing media shared from DMs")
-                .font(.footnote.weight(.semibold))
-                .lineLimit(2)
-
-            Spacer(minLength: 8)
-
-            Button("Back") {
-                backToDMs()
-            }
-            .buttonStyle(.borderedProminent)
-            .controlSize(.small)
-            .accessibilityLabel("Back to DMs")
+        GeometryReader { proxy in
+            Capsule()
+                .fill(.tint)
+                .frame(width: proxy.size.width * max(progress, 0.06))
+                .animation(.linear(duration: 0.2), value: progress)
         }
-        .padding(.horizontal, 14)
-        .padding(.vertical, 10)
-        .background(.regularMaterial, in: Capsule())
-        .shadow(color: .black.opacity(0.12), radius: 12, y: 4)
-        .accessibilityElement(children: .contain)
+        .frame(height: 2)
+        .accessibilityElement()
     }
 }
 

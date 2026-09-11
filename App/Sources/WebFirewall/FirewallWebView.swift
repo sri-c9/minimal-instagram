@@ -40,7 +40,18 @@ struct FirewallWebView: UIViewRepresentable {
         webView.allowsBackForwardNavigationGestures = false
         webView.scrollView.contentInsetAdjustmentBehavior = .never
 
+        // The page lays itself out to the viewport and scrolls inside its own
+        // containers, so the outer scroll view has nothing to scroll; bouncing is
+        // what lets a pull at the top reach the refresh control at all.
+        let refreshControl = UIRefreshControl()
+        refreshControl.addTarget(context.coordinator,
+                                 action: #selector(Coordinator.refresh),
+                                 for: .valueChanged)
+        webView.scrollView.refreshControl = refreshControl
+        webView.scrollView.alwaysBounceVertical = true
+
         context.coordinator.webView = webView
+        context.coordinator.observeProgress(of: webView)
         model.webView = webView
 
         webView.load(URLRequest(url: model.resumeURL))
@@ -67,15 +78,30 @@ struct FirewallWebView: UIViewRepresentable {
             forName: FirewallScript.mediaSurfaceMessageName
         )
         webView.navigationDelegate = nil
+        coordinator.progressObservation = nil
     }
 
     @MainActor
     final class Coordinator: NSObject, WKNavigationDelegate, WKScriptMessageHandler {
         var model: FirewallViewModel
         weak var webView: WKWebView?
+        var progressObservation: NSKeyValueObservation?
 
         init(model: FirewallViewModel) {
             self.model = model
+        }
+
+        func observeProgress(of webView: WKWebView) {
+            progressObservation = webView.observe(\.estimatedProgress, options: [.new]) { [weak self] webView, _ in
+                // WebKit posts this on the main thread; KVO does not carry the isolation.
+                MainActor.assumeIsolated {
+                    self?.model.loadProgress = webView.estimatedProgress
+                }
+            }
+        }
+
+        @objc func refresh() {
+            webView?.reload()
         }
 
         func webView(_ webView: WKWebView, didStartProvisionalNavigation navigation: WKNavigation!) {
@@ -90,6 +116,7 @@ struct FirewallWebView: UIViewRepresentable {
 
         func webView(_ webView: WKWebView, didFinish navigation: WKNavigation!) {
             model.isLoading = false
+            webView.scrollView.refreshControl?.endRefreshing()
             if let url = webView.url {
                 model.observeCommittedURL(url)
             }
@@ -99,12 +126,14 @@ struct FirewallWebView: UIViewRepresentable {
         func webView(_ webView: WKWebView,
                      didFail navigation: WKNavigation!,
                      withError error: Error) {
+            webView.scrollView.refreshControl?.endRefreshing()
             model.fail(error)
         }
 
         func webView(_ webView: WKWebView,
                      didFailProvisionalNavigation navigation: WKNavigation!,
                      withError error: Error) {
+            webView.scrollView.refreshControl?.endRefreshing()
             model.fail(error)
         }
 

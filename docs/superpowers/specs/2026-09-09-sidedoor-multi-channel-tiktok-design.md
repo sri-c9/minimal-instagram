@@ -299,6 +299,17 @@ While this channel's screen is `.blocked`, `ChannelScreen` applies `.toolbarVisi
 
 Between the title and the gear sits the **Unread** toggle (§6.11), shown only when the channel supplies `unreadFilterCSS` and the screen is `.web`. Nothing in `ChannelScreen` ignores the bottom safe area, so the web content ends above the tab bar rather than running under it; this is checked in the increment 4 manual pass.
 
+> **Amended 2026-09-10 (UI pass after increment 3).** The bar is one row: the
+> title (or Back to DMs, in media and blocked states), the media caption, the
+> Unread toggle, and the gear. The status caption and the floating media banner
+> are gone; `FirewallScreenState.caption` supplies the one line media mode still
+> needs. The blocker covers the page edge to edge instead of dimming it, and its
+> copy is "Not part of your DMs". Loading is a two-point progress bar along the
+> top of the page fed by `estimatedProgress`, the spinner is gone, the page
+> pulls to refresh, and `FirewallScreenState.feedbackCue(from:to:)` maps a block
+> and a return to haptics. §6.9 rows for the status captions, media banner, and
+> blocker headline are superseded accordingly.
+
 ### 6.4 `FirewallViewModel`
 
 - `init(channel: ChannelID)`; stores `channel`; `surface = FirewallSurface(channel: channel)`.
