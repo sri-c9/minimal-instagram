@@ -1,4 +1,4 @@
-import IGCore
+import SidedoorCore
 import SwiftUI
 import WebKit
 

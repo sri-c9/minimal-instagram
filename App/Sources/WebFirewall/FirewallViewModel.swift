@@ -1,10 +1,10 @@
 import Combine
 import Foundation
-import IGCore
+import SidedoorCore
 import WebKit
 
 /// Thin observable wrapper over `FirewallSurface`. Everything that decides *what*
-/// the shell shows lives in `IGCore`; this holds only what needs a main actor and a
+/// the shell shows lives in `SidedoorCore`; this holds only what needs a main actor and a
 /// WebView — loading state, the pending load, and website data.
 @MainActor
 final class FirewallViewModel: ObservableObject {

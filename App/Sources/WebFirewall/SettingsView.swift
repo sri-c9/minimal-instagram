@@ -21,7 +21,7 @@ struct SettingsView: View {
                 Section("Privacy") {
                     Text(
                         "Instagram handles login and DMs inside its web page. "
-                            + "Minimal Instagram blocks routes locally and does not read messages, "
+                            + "Sidedoor blocks routes locally and does not read messages, "
                             + "extract cookies, or store Instagram content."
                     )
                     .font(.footnote)
@@ -29,7 +29,7 @@ struct SettingsView: View {
                 }
 
                 Section("About") {
-                    Text("Minimal Instagram loads Instagram web DMs and blocks distracting routes locally.")
+                    Text("Sidedoor loads Instagram web DMs and blocks distracting routes locally.")
                         .font(.footnote)
                         .foregroundStyle(.secondary)
 

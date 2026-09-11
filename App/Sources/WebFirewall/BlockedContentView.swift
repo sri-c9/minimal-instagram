@@ -15,7 +15,7 @@ struct BlockedContentView: View {
                     .font(.headline)
                     .multilineTextAlignment(.center)
 
-                Text("Minimal Instagram keeps this WebView focused on DMs and media opened from DMs.")
+                Text("Sidedoor keeps this view focused on DMs and media opened from DMs.")
                     .font(.subheadline)
                     .foregroundStyle(.secondary)
                     .multilineTextAlignment(.center)

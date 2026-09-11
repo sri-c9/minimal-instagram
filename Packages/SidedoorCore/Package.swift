@@ -2,22 +2,22 @@
 import PackageDescription
 
 let package = Package(
-    name: "IGCore",
+    name: "SidedoorCore",
     platforms: [
         .iOS(.v26),
         .macOS(.v13)   // host floor for `swift test`: enables async URLSession + modern Foundation APIs
     ],
     products: [
-        .library(name: "IGCore", targets: ["IGCore"])
+        .library(name: "SidedoorCore", targets: ["SidedoorCore"])
     ],
     targets: [
         .target(
-            name: "IGCore",
+            name: "SidedoorCore",
             swiftSettings: [.swiftLanguageMode(.v6)]
         ),
         .testTarget(
-            name: "IGCoreTests",
-            dependencies: ["IGCore"],
+            name: "SidedoorCoreTests",
+            dependencies: ["SidedoorCore"],
             resources: [.copy("Fixtures")],
             swiftSettings: [.swiftLanguageMode(.v6)]
         )

@@ -1,6 +1,6 @@
 import Foundation
 import Testing
-@testable import IGCore
+@testable import SidedoorCore
 
 private struct LiveProbeAuthorizationPayload: Encodable {
     let dsUserID: String

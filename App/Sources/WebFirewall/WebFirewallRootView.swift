@@ -1,4 +1,4 @@
-import IGCore
+import SidedoorCore
 import SwiftUI
 
 struct WebFirewallRootView: View {
@@ -47,7 +47,7 @@ struct WebFirewallRootView: View {
             }
 
             VStack(alignment: .leading, spacing: 2) {
-                Text("Minimal Instagram")
+                Text("Sidedoor")
                     .font(.headline)
 
                 Text(model.screen.statusTitle)

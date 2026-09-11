@@ -6,13 +6,13 @@ enum MinimalStyleInjector {
 
     static let source = #"""
 (function() {
-    if (window.__minimalInstagramFirewallInstalled === true) {
+    if (window.__sidedoorInstalled === true) {
         return;
     }
-    window.__minimalInstagramFirewallInstalled = true;
+    window.__sidedoorInstalled = true;
 
     const style = document.createElement('style');
-    style.setAttribute('data-minimal-instagram', 'true');
+    style.setAttribute('data-sidedoor', 'true');
     style.textContent = `
         a[href="/"],
         a[href^="/explore"],
@@ -50,7 +50,7 @@ enum MinimalStyleInjector {
     // Removing that one container's scrollable overflow strands the feed on the
     // shared reel. Scoped to the scroller itself rather than to gestures, so taps,
     // the native fullscreen player, and DM thread scrolling are all untouched.
-    const FEED_LOCK_ATTRIBUTE = 'data-minimal-instagram-feed-locked';
+    const FEED_LOCK_ATTRIBUTE = 'data-sidedoor-feed-locked';
 
     function lockReelFeedScrollers() {
         const videos = document.querySelectorAll('video');

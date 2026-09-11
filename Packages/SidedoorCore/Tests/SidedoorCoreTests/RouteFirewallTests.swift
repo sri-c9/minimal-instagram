@@ -1,6 +1,6 @@
 import Foundation
 import Testing
-@testable import IGCore
+@testable import SidedoorCore
 
 @Suite struct RouteFirewallTests {
     private func url(_ string: String) throws -> URL {

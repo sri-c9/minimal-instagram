@@ -1,6 +1,6 @@
 import Foundation
 import Testing
-@testable import IGCore
+@testable import SidedoorCore
 
 // LIVE end-to-end smoke through the REFACTORED IGWebClient (mobile host + Bearer).
 // INERT unless IG_SESSIONID is set; a plain `swift test` prints a skip notice and passes.

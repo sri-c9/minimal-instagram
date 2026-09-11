@@ -1,6 +1,6 @@
 import Foundation
 import Testing
-@testable import IGCore
+@testable import SidedoorCore
 
 @Suite struct FirewallInvariantTests {
     /// The core product promise as a test: feed adversarial payloads through the

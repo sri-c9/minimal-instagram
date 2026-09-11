@@ -1,6 +1,6 @@
 import Foundation
 import Testing
-@testable import IGCore
+@testable import SidedoorCore
 
 @Suite struct DomainMapperDropTests {
     @Test func dropsAdsSuggestionsUnknownAndPhotoOnlyShares() throws {

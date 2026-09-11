@@ -2,7 +2,7 @@ import AVFoundation
 import SwiftUI
 
 @main
-struct MinimalInstagramApp: App {
+struct SidedoorApp: App {
     init() {
         configureAudioPlayback()
     }

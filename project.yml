@@ -1,4 +1,4 @@
-name: MinimalInstagram
+name: Sidedoor
 
 options:
   bundleIdPrefix: com.srichandramouli
@@ -13,20 +13,20 @@ settings:
     CURRENT_PROJECT_VERSION: "1"
     CODE_SIGN_STYLE: Automatic       # DEVELOPMENT_TEAM comes from Signing.xcconfig
 
-# Local, gitignored signing settings. The .xcodeproj is generated and not
-# committed, so a team picked in Xcode's Signing editor is lost on the next
-# `xcodegen generate`; this is what survives regeneration. Copy
-# Signing.xcconfig.example to Signing.xcconfig on a fresh clone.
+# Signing.xcconfig is committed with an empty team and `#include?`s the
+# gitignored Signing.local.xcconfig, which holds DEVELOPMENT_TEAM for device
+# builds. The .xcodeproj is generated, so a team picked in Xcode's Signing
+# editor is lost on the next `xcodegen generate`; the xcconfig survives it.
 configFiles:
   Debug: Signing.xcconfig
   Release: Signing.xcconfig
 
 packages:
-  IGCore:
-    path: Packages/IGCore
+  SidedoorCore:
+    path: Packages/SidedoorCore
 
 targets:
-  MinimalInstagram:
+  Sidedoor:
     type: application
     platform: iOS
     deploymentTarget: "26.0"
@@ -34,10 +34,11 @@ targets:
       - path: App/Sources
       - path: App/Resources
     dependencies:
-      - package: IGCore
+      - package: SidedoorCore
     settings:
       base:
-        PRODUCT_BUNDLE_IDENTIFIER: com.srichandramouli.MinimalInstagram
+        PRODUCT_BUNDLE_IDENTIFIER: com.srichandramouli.Sidedoor
+        INFOPLIST_KEY_CFBundleDisplayName: Sidedoor
         GENERATE_INFOPLIST_FILE: YES
         INFOPLIST_KEY_UILaunchStoryboardName: LaunchScreen
         INFOPLIST_KEY_UISupportedInterfaceOrientations: "UIInterfaceOrientationPortrait UIInterfaceOrientationPortraitUpsideDown UIInterfaceOrientationLandscapeLeft UIInterfaceOrientationLandscapeRight"
