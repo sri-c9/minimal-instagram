@@ -8,13 +8,13 @@ import WebKit
 /// WebView — loading state, the pending load, and website data.
 @MainActor
 final class FirewallViewModel: ObservableObject {
-    @Published private(set) var surface = FirewallSurface()
+    @Published private(set) var surface = FirewallSurface(channel: .instagram)
     @Published var isLoading = false
     @Published var reloadToken = UUID()
 
     private var pendingLoadURL: URL?
 
-    var homeURL: URL { RouteFirewall.inboxURL }
+    var homeURL: URL { surface.channelID.channel.homeURL }
 
     var screen: FirewallScreenState { surface.screen }
 

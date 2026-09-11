@@ -3,128 +3,139 @@ import Testing
 @testable import SidedoorCore
 
 @Suite struct RouteFirewallTests {
-    private func url(_ string: String) throws -> URL {
-        try #require(URL(string: string))
+    @Test(arguments: ChannelID.allCases)
+    func dmRoutesAreAllowedAndRemembered(channel: ChannelID) throws {
+        let urls = try ChannelURLs.fixture(for: channel)
+        var firewall = RouteFirewall(channel: channel)
+
+        #expect(firewall.decision(for: urls.threadURL, currentURL: nil) == .allow)
+        #expect(firewall.backToDMsURL() == urls.threadURL)
     }
 
-    @Test func directRoutesAreAllowedAndRemembered() throws {
-        var firewall = RouteFirewall()
-        let threadURL = try url("https://www.instagram.com/direct/t/12345/")
+    @Test(arguments: ChannelID.allCases)
+    func authRoutesAreAllowed(channel: ChannelID) throws {
+        let urls = try ChannelURLs.fixture(for: channel)
+        var firewall = RouteFirewall(channel: channel)
 
-        let decision = firewall.decision(for: threadURL, currentURL: nil)
-
-        #expect(decision == .allow)
-        #expect(firewall.backToDMsURL() == threadURL)
-    }
-
-    @Test func authRoutesAreAllowed() throws {
-        var firewall = RouteFirewall()
-        let loginURL = try url("https://www.instagram.com/accounts/login/")
-        let oneTapURL = try url("https://www.instagram.com/accounts/onetap/")
-        let challengeURL = try url("https://www.instagram.com/challenge/action/")
-
-        #expect(firewall.decision(for: loginURL, currentURL: nil) == .allow)
-        #expect(firewall.decision(for: oneTapURL, currentURL: nil) == .allow)
-        #expect(firewall.decision(for: challengeURL, currentURL: nil) == .allow)
-    }
-
-    @Test func mediaRoutesAreAllowedOnlyFromDirectContext() throws {
-        var firewall = RouteFirewall()
-        let threadURL = try url("https://www.instagram.com/direct/t/12345/")
-        let reelURL = try url("https://www.instagram.com/reel/ABC123/")
-        let postURL = try url("https://www.instagram.com/p/POST123/")
-        let storyURL = try url("https://www.instagram.com/stories/alice/999/")
-
-        #expect(firewall.decision(for: reelURL, currentURL: nil) == .block(returnURL: RouteFirewall.inboxURL))
-        #expect(firewall.decision(for: postURL, currentURL: nil) == .block(returnURL: RouteFirewall.inboxURL))
-        #expect(firewall.decision(for: storyURL, currentURL: nil) == .block(returnURL: RouteFirewall.inboxURL))
-
-        #expect(firewall.decision(for: reelURL, currentURL: threadURL) == .allowMedia(returnURL: threadURL))
-        #expect(firewall.decision(for: postURL, currentURL: threadURL) == .allowMedia(returnURL: threadURL))
-        #expect(firewall.decision(for: storyURL, currentURL: threadURL) == .allowMedia(returnURL: threadURL))
-    }
-
-    @Test func secondMediaNavigationFromMediaModeIsBlocked() throws {
-        var firewall = RouteFirewall()
-        let threadURL = try url("https://www.instagram.com/direct/t/12345/")
-        let firstReelURL = try url("https://www.instagram.com/reel/FIRST/")
-        let suggestedReelURL = try url("https://www.instagram.com/reel/SUGGESTED/")
-
-        #expect(firewall.decision(for: firstReelURL, currentURL: threadURL) == .allowMedia(returnURL: threadURL))
-        #expect(firewall.decision(for: suggestedReelURL, currentURL: firstReelURL) == .block(returnURL: threadURL))
-    }
-
-    @Test func distractingRoutesAreBlocked() throws {
-        var firewall = RouteFirewall()
-        let threadURL = try url("https://www.instagram.com/direct/t/12345/")
-        _ = firewall.decision(for: threadURL, currentURL: nil)
-
-        let blockedURLs = try [
-            url("https://www.instagram.com/"),
-            url("https://www.instagram.com/explore/"),
-            url("https://www.instagram.com/reels/"),
-            url("https://www.instagram.com/search/"),
-            url("https://www.instagram.com/alice/"),
-            url("https://www.instagram.com/explore/tags/surfing/"),
-            url("https://www.instagram.com/explore/locations/123/place/")
-        ]
-
-        for blockedURL in blockedURLs {
-            #expect(firewall.decision(for: blockedURL, currentURL: threadURL) == .block(returnURL: threadURL))
+        for authURL in urls.authURLs {
+            #expect(firewall.decision(for: authURL, currentURL: nil) == .allow)
         }
     }
 
-    @Test func nonInstagramHostsAreBlocked() throws {
-        var firewall = RouteFirewall()
-        let externalURL = try url("https://example.com/direct/inbox/")
+    @Test(arguments: ChannelID.allCases)
+    func mediaRoutesAreAllowedOnlyFromADM(channel: ChannelID) throws {
+        let urls = try ChannelURLs.fixture(for: channel)
+        var firewall = RouteFirewall(channel: channel)
 
-        #expect(firewall.decision(for: externalURL, currentURL: nil) == .block(returnURL: RouteFirewall.inboxURL))
+        #expect(firewall.decision(for: urls.mediaURL, currentURL: nil) == .block(returnURL: urls.inboxURL))
+        #expect(firewall.decision(for: urls.mediaURL, currentURL: urls.threadURL)
+            == .allowMedia(returnURL: urls.threadURL))
     }
 
-    @Test func httpInstagramURLsAreBlocked() throws {
-        var firewall = RouteFirewall()
-        let httpURL = try url("http://www.instagram.com/direct/inbox/")
+    @Test(arguments: ChannelID.allCases)
+    func secondMediaNavigationFromMediaModeIsBlocked(channel: ChannelID) throws {
+        let urls = try ChannelURLs.fixture(for: channel)
+        var firewall = RouteFirewall(channel: channel)
 
-        #expect(firewall.decision(for: httpURL, currentURL: nil) == .block(returnURL: RouteFirewall.inboxURL))
+        #expect(firewall.decision(for: urls.mediaURL, currentURL: urls.threadURL)
+            == .allowMedia(returnURL: urls.threadURL))
+        #expect(firewall.decision(for: urls.secondMediaURL, currentURL: urls.mediaURL)
+            == .block(returnURL: urls.threadURL))
     }
 
-    @Test func credentialedAndNonDefaultPortInstagramURLsAreBlocked() throws {
-        var firewall = RouteFirewall()
-        let credentialedURL = try url("https://user:pass@www.instagram.com/direct/inbox/")
-        let nonDefaultPortURL = try url("https://www.instagram.com:8443/direct/inbox/")
+    @Test(arguments: ChannelID.allCases)
+    func distractingRoutesAreBlocked(channel: ChannelID) throws {
+        let urls = try ChannelURLs.fixture(for: channel)
+        var firewall = RouteFirewall(channel: channel)
+        _ = firewall.decision(for: urls.threadURL, currentURL: nil)
 
-        #expect(firewall.decision(for: credentialedURL, currentURL: nil) == .block(returnURL: RouteFirewall.inboxURL))
-        #expect(firewall.decision(for: nonDefaultPortURL, currentURL: nil) == .block(returnURL: RouteFirewall.inboxURL))
-        #expect(RouteFirewall(lastDMURL: credentialedURL).backToDMsURL() == RouteFirewall.inboxURL)
+        for blockedURL in urls.blockedURLs {
+            #expect(firewall.decision(for: blockedURL, currentURL: urls.threadURL)
+                == .block(returnURL: urls.threadURL))
+        }
     }
 
-    @Test func routeMemoryStripsQueryAndFragment() throws {
-        var firewall = RouteFirewall()
-        let threadURL = try url("https://www.instagram.com/direct/t/12345/?igsh=token#frag")
-        let expectedThreadURL = try url("https://www.instagram.com/direct/t/12345/")
-        let reelURL = try url("https://www.instagram.com/reel/ABC123/?utm_source=feed#comments")
+    @Test(arguments: ChannelID.allCases)
+    func foreignHostsAreBlocked(channel: ChannelID) throws {
+        let urls = try ChannelURLs.fixture(for: channel)
+        var firewall = RouteFirewall(channel: channel)
 
-        #expect(RouteFirewall(lastDMURL: threadURL).backToDMsURL() == expectedThreadURL)
-        #expect(firewall.decision(for: threadURL, currentURL: nil) == .allow)
-        #expect(firewall.backToDMsURL() == expectedThreadURL)
-        #expect(firewall.decision(for: reelURL, currentURL: threadURL) == .allowMedia(returnURL: expectedThreadURL))
+        #expect(firewall.decision(for: urls.externalURL, currentURL: nil) == .block(returnURL: urls.inboxURL))
+        #expect(firewall.decision(for: urls.otherChannelURL, currentURL: nil) == .block(returnURL: urls.inboxURL))
+        #expect(firewall.kind(of: urls.otherChannelURL) == nil)
     }
 
-    @Test func backToDMsFallsBackToInboxWhenNoThreadIsKnown() {
-        let firewall = RouteFirewall()
+    @Test(arguments: ChannelID.allCases)
+    func insecureCredentialedAndNonDefaultPortURLsAreBlocked(channel: ChannelID) throws {
+        let urls = try ChannelURLs.fixture(for: channel)
+        var firewall = RouteFirewall(channel: channel)
+        var components = try #require(URLComponents(url: urls.inboxURL, resolvingAgainstBaseURL: false))
 
-        #expect(firewall.backToDMsURL() == RouteFirewall.inboxURL)
+        components.scheme = "http"
+        let httpURL = try #require(components.url)
+        components.scheme = "https"
+        components.user = "user"
+        components.password = "pass"
+        let credentialedURL = try #require(components.url)
+        components.user = nil
+        components.password = nil
+        components.port = 8443
+        let nonDefaultPortURL = try #require(components.url)
+
+        for badURL in [httpURL, credentialedURL, nonDefaultPortURL] {
+            #expect(firewall.decision(for: badURL, currentURL: nil) == .block(returnURL: urls.inboxURL))
+            #expect(firewall.kind(of: badURL) == nil)
+        }
+        #expect(RouteFirewall(channel: channel, lastDMURL: credentialedURL).backToDMsURL() == urls.inboxURL)
     }
 
-    @Test func backToDMsUsesLastRememberedDirectRoute() throws {
-        var firewall = RouteFirewall()
-        let inboxURL = try url("https://www.instagram.com/direct/inbox/")
-        let threadURL = try url("https://www.instagram.com/direct/t/12345/")
+    @Test(arguments: ChannelID.allCases)
+    func routeMemoryNormalizesTheRememberedURL(channel: ChannelID) throws {
+        let urls = try ChannelURLs.fixture(for: channel)
+        var firewall = RouteFirewall(channel: channel)
 
-        firewall.rememberIfDM(inboxURL)
-        #expect(firewall.backToDMsURL() == inboxURL)
+        #expect(RouteFirewall(channel: channel, lastDMURL: urls.threadURLWithQueryAndFragment).backToDMsURL()
+            == urls.expectedRememberedURL)
+        #expect(firewall.decision(for: urls.threadURLWithQueryAndFragment, currentURL: nil) == .allow)
+        #expect(firewall.backToDMsURL() == urls.expectedRememberedURL)
+        #expect(firewall.decision(for: urls.mediaURL, currentURL: urls.threadURLWithQueryAndFragment)
+            == .allowMedia(returnURL: urls.expectedRememberedURL))
+    }
 
-        firewall.rememberIfDM(threadURL)
-        #expect(firewall.backToDMsURL() == threadURL)
+    @Test(arguments: ChannelID.allCases)
+    func backToDMsFallsBackToHomeWhenNoThreadIsKnown(channel: ChannelID) throws {
+        let urls = try ChannelURLs.fixture(for: channel)
+        let firewall = RouteFirewall(channel: channel)
+
+        #expect(firewall.backToDMsURL() == urls.inboxURL)
+        #expect(firewall.homeURL == urls.inboxURL)
+    }
+
+    @Test(arguments: ChannelID.allCases)
+    func backToDMsUsesLastRememberedDMRoute(channel: ChannelID) throws {
+        let urls = try ChannelURLs.fixture(for: channel)
+        var firewall = RouteFirewall(channel: channel)
+
+        firewall.rememberIfDM(urls.inboxURL)
+        #expect(firewall.backToDMsURL() == urls.inboxURL)
+
+        firewall.rememberIfDM(urls.threadURL)
+        #expect(firewall.backToDMsURL() == urls.threadURL)
+
+        firewall.rememberIfDM(urls.mediaURL)
+        #expect(firewall.backToDMsURL() == urls.threadURL)
+    }
+
+    @Test(arguments: ChannelID.allCases)
+    func kindReportsTheChannelClassification(channel: ChannelID) throws {
+        let urls = try ChannelURLs.fixture(for: channel)
+        let firewall = RouteFirewall(channel: channel)
+
+        #expect(firewall.kind(of: urls.threadURL) == .dm)
+        #expect(firewall.kind(of: urls.mediaURL) == .media)
+        #expect(firewall.kind(of: urls.blockedURLs[0]) == .other)
+        for authURL in urls.authURLs {
+            #expect(firewall.kind(of: authURL) == .auth)
+        }
     }
 }

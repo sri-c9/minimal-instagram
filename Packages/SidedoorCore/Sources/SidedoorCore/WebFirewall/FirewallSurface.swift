@@ -6,10 +6,10 @@ import Foundation
 /// Two independent inputs drive it:
 ///
 /// - **Navigations** go through `RouteFirewall`, which decides purely from the URL.
-/// - **The inline reels feed** has no URL of its own. Instagram mounts that
-///   component inside `/direct/t/<thread>/` without navigating, so `RouteFirewall`
-///   is never given a decision to make and the injected script has to report the
-///   surface separately via `observeInlineMediaSurface(isPresent:)`.
+/// - **An inline media feed** has no URL of its own. A channel may mount such a
+///   component inside a DM thread without navigating, so `RouteFirewall` is never
+///   given a decision to make and the injected script has to report the surface
+///   separately via `observeInlineMediaSurface(isPresent:)`.
 ///
 /// The two must not fight each other, which is the whole reason this is one type
 /// rather than flags scattered across a view model: a report that the inline feed
@@ -18,18 +18,22 @@ import Foundation
 public struct FirewallSurface: Equatable, Sendable {
     public private(set) var screen: FirewallScreenState = .web
 
-    private var routeFirewall = RouteFirewall()
+    private var routeFirewall: RouteFirewall
 
     /// The DM thread the WebView is sitting on, or `nil` when it is anywhere else.
     /// Doubles as the marker for "the inline surface is the only thing that could
     /// have raised media mode here".
     private var currentDirectURL: URL?
 
-    /// Whether the injected script currently reports the inline reels feed mounted.
+    /// Whether the injected script currently reports an inline media feed mounted.
     /// Tracked apart from `screen` so a stale or duplicated report is a no-op.
     private var isInlineMediaActive = false
 
-    public init() {}
+    public init(channel: ChannelID) {
+        routeFirewall = RouteFirewall(channel: channel)
+    }
+
+    public var channelID: ChannelID { routeFirewall.channelID }
 
     public var showsBackToDMs: Bool { screen.showsBackToDMs }
 
@@ -45,9 +49,7 @@ public struct FirewallSurface: Equatable, Sendable {
 
         switch decision {
         case .allow:
-            if RouteFirewall.isDirectURL(targetURL) || RouteFirewall.isAllowedAuthURL(targetURL) {
-                screen = .web
-            }
+            screen = .web
         case .allowMedia(let returnURL):
             // A real media route owns the screen from here; the inline surface, if
             // one was up, is about to be navigated away from.
@@ -67,7 +69,7 @@ public struct FirewallSurface: Equatable, Sendable {
         // raced ahead of the script's first message on a fresh load.
         isInlineMediaActive = false
 
-        if RouteFirewall.isDirectURL(url) {
+        if routeFirewall.kind(of: url) == .dm {
             let routeURL = RouteFirewall.routeURL(for: url)
             currentDirectURL = routeURL
             routeFirewall.rememberIfDM(routeURL)
@@ -76,12 +78,12 @@ public struct FirewallSurface: Equatable, Sendable {
         }
 
         currentDirectURL = nil
-        if RouteFirewall.isAllowedAuthURL(url) {
+        if routeFirewall.kind(of: url) == .auth {
             screen = .web
         }
     }
 
-    /// Reports whether Instagram's reels feed is mounted inline in the current DM
+    /// Reports whether the channel's media feed is mounted inline in the current DM
     /// thread. Idempotent: repeated reports of the same value do nothing.
     public mutating func observeInlineMediaSurface(isPresent: Bool) {
         guard isInlineMediaActive != isPresent else { return }
@@ -116,6 +118,6 @@ public struct FirewallSurface: Equatable, Sendable {
 
     /// Drops every trace of the signed-in session's browsing state.
     public mutating func reset() {
-        self = FirewallSurface()
+        self = FirewallSurface(channel: channelID)
     }
 }
