@@ -1,7 +1,7 @@
 ---
 title: Sidedoor — TikTok Web DM Surface Recon Findings
 date: 2026-09-10
-status: measurement complete — D1 is the user's decision (spec §8.4, plan Task 8)
+status: measurement complete — D1 decided 2026-09-10, TikTok deferred (spec §8.4, plan Task 8)
 related: "[[Technical Design (V2)]], docs/superpowers/specs/2026-09-09-sidedoor-multi-channel-tiktok-design.md"
 ---
 
@@ -218,7 +218,11 @@ on them.
   only after an iPad probe, keeping `.mobile` for Instagram; (c) relax §3 to
   allow `customUserAgent` for TikTok — a posture change, not a build task. No
   option is recommended here beyond noting that (c) is the one §3 currently
-  forbids. **Decision: pending, user's.**
+  forbids. **Decision (user, 2026-09-10): (a) for now — TikTok is off.** No
+  TikTok channel ships and no increment 4 plan is written. The `ChannelID`
+  identifier `7075CEAF-…` stays reserved, the scratch branch stays local, and
+  (b) or (c) can reopen this from the measurements above without re-probing
+  the iPhone surface.
 - **D2, return route.** Not measurable — no thread route was reached.
 - **D3, feed containment.** Not measurable — no shared video was reached. The
   logged-out `/foryou` feed is the surface the blocker must catch if TikTok
