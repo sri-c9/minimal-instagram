@@ -4,7 +4,6 @@ import WebKit
 
 struct FirewallWebView: UIViewRepresentable {
     @ObservedObject var model: FirewallViewModel
-    let reloadToken: UUID
 
     func makeCoordinator() -> Coordinator {
         Coordinator(model: model)
@@ -12,14 +11,17 @@ struct FirewallWebView: UIViewRepresentable {
 
     func makeUIView(context: Context) -> WKWebView {
         let configuration = WKWebViewConfiguration()
-        configuration.websiteDataStore = .default()
+        configuration.websiteDataStore = model.dataStore
         configuration.allowsInlineMediaPlayback = false
         configuration.allowsAirPlayForMediaPlayback = true
         configuration.mediaTypesRequiringUserActionForPlayback = []
+        // Every device gets the surface that was measured; WebKit's default serves
+        // desktop web on most iPads (§6.10).
+        configuration.defaultWebpagePreferences.preferredContentMode = .mobile
 
         let userContentController = WKUserContentController()
         userContentController.addUserScript(
-            WKUserScript(source: FirewallScript.compose(for: ChannelID.instagram.channel),
+            WKUserScript(source: model.scriptSource,
                          injectionTime: .atDocumentEnd,
                          forMainFrameOnly: true)
         )
@@ -39,20 +41,14 @@ struct FirewallWebView: UIViewRepresentable {
         webView.scrollView.contentInsetAdjustmentBehavior = .never
 
         context.coordinator.webView = webView
-        context.coordinator.reloadToken = reloadToken
+        model.webView = webView
 
-        webView.load(URLRequest(url: model.homeURL))
+        webView.load(URLRequest(url: model.resumeURL))
         return webView
     }
 
     func updateUIView(_ webView: WKWebView, context: Context) {
         context.coordinator.model = model
-
-        if context.coordinator.reloadToken != reloadToken {
-            context.coordinator.reloadToken = reloadToken
-            webView.load(URLRequest(url: model.homeURL))
-            return
-        }
 
         if let requestedURL = model.consumePendingLoadURL() {
             webView.load(URLRequest(url: requestedURL))
@@ -60,6 +56,10 @@ struct FirewallWebView: UIViewRepresentable {
     }
 
     static func dismantleUIView(_ webView: WKWebView, coordinator: Coordinator) {
+        // The replacement WebView may already have registered itself.
+        if coordinator.model.webView === webView {
+            coordinator.model.webView = nil
+        }
         webView.configuration.userContentController.removeScriptMessageHandler(
             forName: FirewallScript.routeMessageName
         )
@@ -73,7 +73,6 @@ struct FirewallWebView: UIViewRepresentable {
     final class Coordinator: NSObject, WKNavigationDelegate, WKScriptMessageHandler {
         var model: FirewallViewModel
         weak var webView: WKWebView?
-        var reloadToken: UUID?
 
         init(model: FirewallViewModel) {
             self.model = model
@@ -94,6 +93,7 @@ struct FirewallWebView: UIViewRepresentable {
             if let url = webView.url {
                 model.observeCommittedURL(url)
             }
+            model.reapplyUnreadFilterIfOn()
         }
 
         func webView(_ webView: WKWebView,

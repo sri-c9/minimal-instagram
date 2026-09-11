@@ -1,9 +1,14 @@
 import SidedoorCore
 import SwiftUI
 
-struct WebFirewallRootView: View {
-    @StateObject private var model = FirewallViewModel()
+struct ChannelScreen: View {
+    @ObservedObject var model: FirewallViewModel
+    let logout: (ChannelID) -> Void
     @State private var showingSettings = false
+
+    private var isBlocked: Bool {
+        if case .blocked = model.screen { true } else { false }
+    }
 
     var body: some View {
         ZStack {
@@ -21,16 +26,17 @@ struct WebFirewallRootView: View {
                 Color.black.opacity(0.18)
                     .ignoresSafeArea()
 
-                BlockedContentView {
+                BlockedContentView(displayName: model.displayName) {
                     model.backToDMs()
                 }
             }
         }
         .sheet(isPresented: $showingSettings) {
-            SettingsView {
-                model.logout()
-            }
+            SettingsView(logout: logout)
         }
+        // While blocked the screen offers exactly one action, Back to DMs; the
+        // tab bar would be a second. No-op when there is no tab bar.
+        .toolbarVisibility(isBlocked ? .hidden : .automatic, for: .tabBar)
     }
 
     private var topBar: some View {
@@ -47,7 +53,7 @@ struct WebFirewallRootView: View {
             }
 
             VStack(alignment: .leading, spacing: 2) {
-                Text("Sidedoor")
+                Text(model.displayName)
                     .font(.headline)
 
                 Text(model.screen.statusTitle)
@@ -57,6 +63,20 @@ struct WebFirewallRootView: View {
             }
 
             Spacer()
+
+            if model.offersUnreadFilter, case .web = model.screen {
+                Button {
+                    model.setUnreadFilter(!model.isUnreadFilterOn)
+                } label: {
+                    Label("Unread", systemImage: model.isUnreadFilterOn ? "envelope.badge.fill" : "envelope.badge")
+                        .labelStyle(.titleAndIcon)
+                }
+                .buttonStyle(.bordered)
+                .tint(model.isUnreadFilterOn ? Color.accentColor : Color.secondary)
+                .accessibilityLabel("Show unread only")
+                .accessibilityValue(model.isUnreadFilterOn ? "On" : "Off")
+                .accessibilityAddTraits(.isToggle)
+            }
 
             Button {
                 showingSettings = true
@@ -74,13 +94,13 @@ struct WebFirewallRootView: View {
 
     private var webContent: some View {
         ZStack {
-            FirewallWebView(model: model, reloadToken: model.reloadToken)
+            FirewallWebView(model: model)
                 .id(model.reloadToken)
                 .frame(maxWidth: .infinity, maxHeight: .infinity)
 
             if model.isLoading {
                 ProgressView()
-                    .accessibilityLabel("Loading Instagram")
+                    .accessibilityLabel("Loading \(model.displayName)")
                     .padding(18)
                     .background(.regularMaterial, in: Capsule())
             }
@@ -111,11 +131,11 @@ struct WebFirewallRootView: View {
                 .foregroundStyle(.secondary)
                 .accessibilityHidden(true)
 
-            Text("Couldn't load Instagram")
+            Text("Couldn't load \(model.displayName)")
                 .font(.headline)
 
             VStack(spacing: 6) {
-                Text("Check your connection, then reload Instagram web DMs.")
+                Text("Check your connection, then reload \(model.displayName) DMs.")
                     .font(.subheadline)
                     .foregroundStyle(.secondary)
                     .multilineTextAlignment(.center)
@@ -133,7 +153,7 @@ struct WebFirewallRootView: View {
                 .buttonStyle(.bordered)
 
                 Button("Reload") {
-                    model.reloadInstagram()
+                    model.reloadHome()
                 }
                 .buttonStyle(.borderedProminent)
             }
@@ -176,5 +196,5 @@ private struct MediaModeBanner: View {
 }
 
 #Preview {
-    WebFirewallRootView()
+    ChannelScreen(model: FirewallViewModel(channel: .instagram), logout: { _ in })
 }

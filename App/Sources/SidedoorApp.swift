@@ -4,6 +4,7 @@ import SwiftUI
 @main
 struct SidedoorApp: App {
     init() {
+        LegacyDataStoreCleanup.runIfNeeded()
         configureAudioPlayback()
     }
 

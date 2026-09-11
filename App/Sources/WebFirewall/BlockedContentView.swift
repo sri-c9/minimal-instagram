@@ -1,6 +1,7 @@
 import SwiftUI
 
 struct BlockedContentView: View {
+    let displayName: String
     let backToDMs: () -> Void
 
     var body: some View {
@@ -11,7 +12,7 @@ struct BlockedContentView: View {
                 .accessibilityHidden(true)
 
             VStack(spacing: 8) {
-                Text("This Instagram route is blocked")
+                Text("This \(displayName) route is blocked")
                     .font(.headline)
                     .multilineTextAlignment(.center)
 
