@@ -1,7 +1,7 @@
-# Minimal Instagram
+# Sidedoor
 
-A relationship-first, "attention firewall" iOS app for Instagram web DMs. V1
-loads Instagram's official web DM surface in a local `WKWebView`, blocks
+A relationship-first, "attention firewall" iOS app for social DMs. V1 loads
+Instagram's official web DM surface in a local `WKWebView`, blocks
 distracting routes like feed/explore/reels/search, and allows media only when it
 is opened from a DM. No private Instagram API, session extraction, backend
 bridge, polling, or message scraping is part of the V1 app flow.
@@ -35,23 +35,22 @@ See `docs/` for the product and technical design.
 
 ```
 project.yml            XcodeGen manifest — source of truth for the app project (.xcodeproj is generated)
-.swiftlint.yml         Lint config (governs App + IGCore)
+.swiftlint.yml         Lint config (governs App + SidedoorCore)
 App/
-  Sources/             SwiftUI shell + WKWebView route firewall (UI/device layer)
+  Sources/             SwiftUI shell + WKWebView route firewall, one screen per channel (UI/device layer)
   Resources/           Assets.xcassets
 Packages/
-  IGCore/              Pure, UI-free logic — testable via `swift test`, no simulator
-    Sources/IGCore/
-    Tests/IGCoreTests/
+  SidedoorCore/        Pure, UI-free logic — testable via `swift test`, no simulator
+    Sources/SidedoorCore/
+      Channel/         Channel protocol, ChannelID registry, InstagramChannel
+      WebFirewall/     RouteFirewall, FirewallSurface, FirewallScript
+    Tests/SidedoorCoreTests/
 docs/                  Product + technical design (copied from the Obsidian vault)
 ```
 
-`IGCore` is a Swift Package that must never import SwiftUI/UIKit/WebKit. It holds
-pure logic such as DTO mapping and route policy tests. The app target owns the
-actual `WKWebView` and native SwiftUI shell.
-
-**Intended `IGCore` structure** (created as each component is built, test-first):
-`Session/` · `Client/` · `Mapper/` · `Repository/` · `Media/` · `Models/`.
+`SidedoorCore` is a Swift Package that must never import SwiftUI/UIKit/WebKit. It
+holds pure logic such as DTO mapping and route policy tests. The app target owns
+the actual `WKWebView` and native SwiftUI shell.
 
 ## Requirements
 
@@ -62,32 +61,43 @@ actual `WKWebView` and native SwiftUI shell.
 
 ```bash
 # Run the fast logic tests (no simulator):
-cd Packages/IGCore && swift test
+cd Packages/SidedoorCore && swift test
 
 # (Re)generate the Xcode project from project.yml:
 xcodegen generate
 
 # Build the app for the simulator:
-xcodebuild -project MinimalInstagram.xcodeproj -scheme MinimalInstagram \
-  -destination 'platform=iOS Simulator,name=iPhone 16' build
+xcodebuild -project Sidedoor.xcodeproj -scheme Sidedoor \
+  -destination 'platform=iOS Simulator,name=iPhone 17' build
 
 # Lint:
 swiftlint
 ```
 
-## Manual WebView firewall checks
+## Manual firewall checks
 
-After launching the app, verify:
+Run once per channel after launching the app:
 
-1. The app opens `instagram.com/direct/inbox/` inside the native shell.
-2. Instagram login / 2FA / checkpoint flows remain usable inside the WebView.
-3. DM read and send work through Instagram's own web UI.
-4. Tapping a reel/post/story from a DM opens media mode.
+1. The app opens the channel's DM home inside the native shell.
+2. Login / 2FA / checkpoint flows remain usable inside the WebView.
+3. DM read and send work through the network's own web UI.
+4. Tapping media from a DM opens media mode.
 5. `Back to DMs` returns to the originating thread or inbox.
-6. Feed, Explore, Reels tab, Search, profile, hashtag, and location routes show
-   the local blocker screen.
-7. Settings → logout clears the app's Instagram WebKit data and returns to login.
+6. Feed, explore, search, profile, and discovery routes show the local blocker.
+7. Settings → Log Out of <network> clears only that channel's WebKit data and
+   returns it to login.
 
-Open `MinimalInstagram.xcodeproj` in Xcode to run on a device/simulator. After
-adding a brand-new source file, run `xcodegen generate` so it joins the project.
-On first device run, select your personal team under Signing & Capabilities.
+With more than one channel installed, also verify:
+
+8. Switching channels shows each page exactly where it was, with no reload.
+9. Audio from a playing video stops when you switch away.
+10. The tab bar disappears while a channel is blocked and returns after Back to DMs.
+11. The web content ends above the tab bar.
+12. The Unread toggle hides read threads, survives a relaunch, and turning it off
+    restores every row.
+13. Logging out of one channel leaves the other signed in.
+
+Open `Sidedoor.xcodeproj` in Xcode to run on a device/simulator. After adding a
+brand-new source file, run `xcodegen generate` so it joins the project. For
+device builds, put your team ID in `Signing.local.xcconfig` (gitignored; see the
+comment in `Signing.xcconfig`).

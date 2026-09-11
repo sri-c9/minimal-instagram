@@ -1,7 +1,7 @@
 included:
   - App/Sources
-  - Packages/IGCore/Sources
-  - Packages/IGCore/Tests
+  - Packages/SidedoorCore/Sources
+  - Packages/SidedoorCore/Tests
 
 excluded:
   - "**/.build"

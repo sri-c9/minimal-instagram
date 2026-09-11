@@ -1,4 +1,4 @@
-name: MinimalInstagram
+name: Sidedoor
 
 options:
   bundleIdPrefix: com.srichandramouli
@@ -9,16 +9,24 @@ options:
 settings:
   base:
     SWIFT_VERSION: "6.0"            # Swift 6 language mode → strict data-race safety
-    MARKETING_VERSION: "0.0.1"
+    MARKETING_VERSION: "0.1.0"
     CURRENT_PROJECT_VERSION: "1"
-    CODE_SIGN_STYLE: Automatic       # pick your personal team in Xcode → Signing on first device run
+    CODE_SIGN_STYLE: Automatic       # DEVELOPMENT_TEAM comes from Signing.xcconfig
+
+# Signing.xcconfig is committed with an empty team and `#include?`s the
+# gitignored Signing.local.xcconfig, which holds DEVELOPMENT_TEAM for device
+# builds. The .xcodeproj is generated, so a team picked in Xcode's Signing
+# editor is lost on the next `xcodegen generate`; the xcconfig survives it.
+configFiles:
+  Debug: Signing.xcconfig
+  Release: Signing.xcconfig
 
 packages:
-  IGCore:
-    path: Packages/IGCore
+  SidedoorCore:
+    path: Packages/SidedoorCore
 
 targets:
-  MinimalInstagram:
+  Sidedoor:
     type: application
     platform: iOS
     deploymentTarget: "26.0"
@@ -26,12 +34,15 @@ targets:
       - path: App/Sources
       - path: App/Resources
     dependencies:
-      - package: IGCore
+      - package: SidedoorCore
     settings:
       base:
-        PRODUCT_BUNDLE_IDENTIFIER: com.srichandramouli.MinimalInstagram
+        PRODUCT_BUNDLE_IDENTIFIER: com.srichandramouli.Sidedoor
+        INFOPLIST_KEY_CFBundleDisplayName: Sidedoor
         GENERATE_INFOPLIST_FILE: YES
         INFOPLIST_KEY_UILaunchStoryboardName: LaunchScreen
+        INFOPLIST_KEY_UISupportedInterfaceOrientations: "UIInterfaceOrientationPortrait UIInterfaceOrientationPortraitUpsideDown UIInterfaceOrientationLandscapeLeft UIInterfaceOrientationLandscapeRight"
+        INFOPLIST_KEY_UISupportedInterfaceOrientations~ipad: "UIInterfaceOrientationPortrait UIInterfaceOrientationPortraitUpsideDown UIInterfaceOrientationLandscapeLeft UIInterfaceOrientationLandscapeRight"
         ENABLE_USER_SCRIPT_SANDBOXING: NO   # SwiftLint scans the whole repo; the script sandbox would deny those reads
 
         ASSETCATALOG_COMPILER_APPICON_NAME: AppIcon
