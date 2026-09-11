@@ -38,7 +38,16 @@ import Testing
         #expect(channel.hosts == ["instagram.com", "www.instagram.com"])
         #expect(channel.homeURL == (try #require(URL(string: "https://www.instagram.com/direct/inbox/"))))
         #expect(channel.webScript.inlineMediaHook != nil)
-        #expect(channel.webScript.unreadFilterCSS == nil)
+        #expect(channel.webScript.unreadFilterCSS != nil)
+    }
+
+    @Test func unreadFilterHidesRowsWithoutTheMeasuredMarker() throws {
+        let css = try #require(channel.webScript.unreadFilterCSS)
+        #expect(css.contains(":not(:has("))
+        #expect(css.contains("display: none !important"))
+        // Scope and marker as measured in docs/Instagram Web Inbox — Unread Marker (2026-09-10).md.
+        #expect(css.contains(#"[data-pagelet="IGDInboxThreadListScrollableAreaPagelet"]"#))
+        #expect(css.contains(#"span[data-visualcompletion="ignore"]"#))
     }
 
     @Test func cssHidesNavigationAndDoesNotCarryTheSharedBodyRule() {

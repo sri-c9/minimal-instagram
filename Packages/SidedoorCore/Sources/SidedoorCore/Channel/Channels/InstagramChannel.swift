@@ -30,8 +30,21 @@ public struct InstagramChannel: Channel {
     }
 
     public var webScript: ChannelWebScript {
-        ChannelWebScript(css: Self.css, inlineMediaHook: Self.inlineMediaHook, unreadFilterCSS: nil)
+        ChannelWebScript(css: Self.css, inlineMediaHook: Self.inlineMediaHook, unreadFilterCSS: Self.unreadFilterCSS)
     }
+
+    // Measured in docs/Instagram Web Inbox — Unread Marker (2026-09-10).md. A thread
+    // row is a `div.html-div` child of the list container inside the inbox pagelet,
+    // wrapping one `div[role="button"]` three levels down; an unread row contains the
+    // 8 px dot `span[data-visualcompletion="ignore"]` (with a hidden "Unread" label)
+    // and a read row contains no such span. The pagelet scope keeps the rule off the
+    // eleven same-shaped elements the thread view mounts outside the list.
+    static let unreadFilterCSS = """
+    [data-pagelet="IGDInboxThreadListScrollableAreaPagelet"]
+    div.html-div > div.html-div:has(> div > div > div[role="button"]):not(:has(span[data-visualcompletion="ignore"])) {
+        display: none !important;
+    }
+    """
 
     static let css = """
     a[href="/"],
