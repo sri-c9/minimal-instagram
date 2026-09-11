@@ -137,11 +137,6 @@ final class FirewallViewModel: ObservableObject {
 private extension Error {
     var isNavigationCancellation: Bool {
         let error = self as NSError
-        if error.domain == NSURLErrorDomain, error.code == NSURLErrorCancelled {
-            return true
-        }
-
-        // WebKit also reports policy-cancelled loads as WebKitErrorDomain code 102.
-        return error.domain == WKErrorDomain && error.code == 102
+        return NavigationFailure.isCancellation(domain: error.domain, code: error.code)
     }
 }
